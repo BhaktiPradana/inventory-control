@@ -1,0 +1,86 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Verifikasi QC - {{ sku.sku_id }}{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Dashboard
+        </a>
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 text-center mb-4">Verifikasi Quality Control (QC)</h1>
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>SKU ID:</strong>
+                        <span class="text-primary fw-bold">{{ sku.sku_id }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Nama Mesin:</strong>
+                        <span>{{ sku.name }}</span>
+                    </li>
+                </ul>
+
+                <div class="alert alert-light border" role="alert">
+                    <h4 class="alert-heading h5">Detail dari Teknisi ({{ qc_form.technician.username }})</h4>
+                    <p class="mb-0" style="white-space: pre-wrap;">{{ qc_form.condition_notes }}</p>
+                </div>
+                {% if qc_form.qc_document_file %}
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading h5">File QC Form Terlampir</h4>
+                    <p class="mb-0">
+                        <i class="bi bi-file-earmark-arrow-down"></i>
+                        <a href="{{ qc_form.qc_document_file.url }}" target="_blank">
+                            Download/Lihat File ({{ qc_form.qc_document_file.name|truncatechars:30 }})
+                        </a>
+                    </p>
+                </div>
+                {% endif %}
+                {% if part_requests %}
+                <div class="alert alert-warning" role="alert">
+                    <h4 class="alert-heading h5">Request Spare Part (Status: Pending)</h4>
+                    <ul class="mb-0">
+                        {% for part in part_requests %}
+                        <li>{{ part.quantity_needed }}x {{ part.part_name }}</li>
+                        {% endfor %}
+                    </ul>
+                    <hr>
+                    <p class="mb-0 small"><strong>Catatan:</strong> Jika Anda 'Approve', request ini akan diteruskan ke Warehouse Manager.</p>
+                </div>
+                {% endif %}
+
+                {% if qc_form.lead_technician_comments %}
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading h5">Catatan Penolakan Anda Sebelumnya:</h4>
+                    <p class="mb-0" style="white-space: pre-wrap;">{{ qc_form.lead_technician_comments }}</p>
+                </div>
+                {% endif %}
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="comments" class="form-label fs-5">Komentar Anda (Wajib diisi jika 'Reject'):</label>
+                        <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="submit" name="reject" class="btn btn-danger btn-lg">
+                            Reject (Kembalikan ke Teknisi)
+                        </button>
+
+                        <button type="submit" name="approve" class="btn btn-success btn-lg">
+                            Approve
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div> {% endblock %}

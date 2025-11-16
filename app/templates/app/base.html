@@ -1,0 +1,173 @@
+<!doctype html>
+<!-- 'h-100' (height 100%) diperlukan untuk sticky footer -->
+<html lang="en" class="h-100">
+<head>
+    <meta charset="utf-8"> <!-- Menggunakan 'utf-8' standar -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Sistem Kontrol Barang{% endblock %}</title>
+
+    <!-- Link ke Bootstrap CSS (Sudah benar) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* CSS kustom untuk sticky footer */
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        main {
+            flex-shrink: 0;
+        }
+
+        .footer {
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column h-100">
+
+    <!-- Navbar (Menu Navigasi Atas) -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'dashboard' %}">
+                <!-- Ini adalah ikon 'stack' (tumpukan) dari Bootstrap Icons -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-stack me-2" viewBox="0 0 16 16">
+                    <path d="M14 10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2zM4 3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1z" />
+                    <path d="M12 2.5a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5m3 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5M1.5 3a.5.5 0 0 0 0 1v6a.5.5 0 0 0 1 0V3a.5.5 0 0 0-1 0" />
+                </svg>
+                Kontrol Barang
+            </a>
+
+            <!-- Info User dan Tombol Logout (Sudah benar) -->
+            {% if user.is_authenticated %}
+            <span class="navbar-text me-3 d-none d-sm-inline">
+                <!-- Sembunyikan 'Halo' di layar HP kecil -->
+                Halo, {{ user.username }}!
+            </span>
+            <form action="{% url 'logout' %}" method="POST" class="d-flex">
+                {% csrf_token %}
+                <button class="btn btn-outline-light" type="submit">Logout</button>
+            </form>
+            {% endif %}
+        </div>
+    </nav>
+    <main class="flex-shrink-0">
+        <div class="container mt-4">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+    <footer class="footer mt-auto py-3 bg-light border-top">
+        <div class="container text-center">
+            <span class="text-muted">
+                &copy; {% now "Y" %} BringCO. Hak Cipta Dilindungi.
+            </span>
+        </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="modal fade" id="skuHistoryModal" tabindex="-1" aria-labelledby="skuHistoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="skuHistoryModalLabel">Memuat History SKU...</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="skuHistoryModalBody">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var historyModal = document.getElementById('skuHistoryModal');
+
+            historyModal.addEventListener('show.bs.modal', function (event) {
+                // Tombol yang memicu modal
+                var button = event.relatedTarget;
+
+                // Ambil SKU ID dari atribut data-sku-id
+                var skuId = button.getAttribute('data-sku-id');
+
+                var modalBody = document.getElementById('skuHistoryModalBody');
+                var modalTitle = document.getElementById('skuHistoryModalLabel');
+
+                // Buat URL untuk fetch data (sesuai urls.py yang kita buat)
+                var url = `/sku/history/modal/${skuId}/`;
+
+                // Set judul modal
+                modalTitle.textContent = `Memuat History untuk SKU...`;
+
+                // Tampilkan spinner loading
+                modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+                // Ambil data history menggunakan Fetch API
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.text(); // Ambil konten HTML
+                    })
+                    .then(html => {
+                        // Masukkan HTML history ke dalam modal body
+                        modalBody.innerHTML = html;
+
+                        // Ambil judul dari H1 di dalam konten yang baru dimuat
+                        var newTitle = modalBody.querySelector('h1.h4');
+                        if (newTitle) {
+                            modalTitle.textContent = newTitle.textContent;
+                        }
+                    })
+                    .catch(error => {
+                        // Tampilkan error jika gagal
+                        modalBody.innerHTML = '<div class="alert alert-danger">Gagal memuat history. Silakan coba lagi.</div>';
+                        console.error('Error fetching SKU history:', error);
+                    });
+            });
+
+            // Reset modal body saat ditutup
+            historyModal.addEventListener('hidden.bs.modal', function (event) {
+                var modalBody = document.getElementById('skuHistoryModalBody');
+                var modalTitle = document.getElementById('skuHistoryModalLabel');
+                modalTitle.textContent = 'Memuat History SKU...';
+                modalBody.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+            });
+        });
+        function printQRCode(elementId) {
+            // 1. Ambil konten HTML dari div yang ingin diprint
+            var printContent = document.getElementById(elementId).innerHTML;
+
+            // 2. Buka jendela pop-up baru
+            var printWindow = window.open('', '_blank', 'height=500,width=500');
+
+            // 3. Tulis HTML dasar dan konten QR ke jendela baru
+            printWindow.document.write('<html><head><title>Print QR Code</title>');
+            // Tambahkan style sederhana untuk centering
+            printWindow.document.write('<style> body { text-align: center; margin-top: 50px; } </style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(printContent);
+            printWindow.document.write('</body></html>');
+
+            printWindow.document.close();
+            printWindow.focus();
+
+            // 4. Beri jeda 500ms agar gambar SVG (QR code) sempat ter-render
+            setTimeout(function () {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+    </script>
+</body>
+</html>

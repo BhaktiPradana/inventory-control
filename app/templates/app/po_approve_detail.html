@@ -1,0 +1,76 @@
+{% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Proses PO: {{ po.po_number }}{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'po_approve_list' %}" class="btn btn-sm btn-outline-secondary mb-3">
+    &larr; Kembali ke Daftar Approval
+</a>
+
+<div class="row">
+    <div class="col-lg-7 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h1 class="h4 mb-0">Detail PO: {{ po.po_number }}</h1>
+            </div>
+            <div class="card-body p-4">
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Nomor PO:</strong>
+                        <span class="fw-bold">{{ po.po_number }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Jumlah SKU Diharapkan:</strong>
+                        <span class="fw-bold">{{ po.expected_sku_count }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Status Saat Ini:</strong>
+                        <span class="badge bg-warning text-dark">{{ po.get_status_display }}</span>
+                    </li>
+                </ul>
+
+                <hr class="my-4">
+
+                <div class="d-flex justify-content-between gap-3">
+                    <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                        <i class="bi bi-x-circle me-2"></i> Tolak PO
+                    </button>
+
+                    <form method="POST" class="m-0">
+                        {% csrf_token %}
+                        <button type="submit" name="approve" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle me-2"></i> Setujui & Lanjutkan PO
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectModalLabel">Tolak Purchase Order?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p>Anda akan menolak PO <strong>{{ po.po_number }}</strong>. Harap berikan alasan penolakan.</p>
+                    {{ reject_form|crispy }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" name="reject" class="btn btn-danger">Ya, Tolak PO Ini</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

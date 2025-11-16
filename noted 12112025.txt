@@ -1,0 +1,25 @@
+noted :
+1. tombol search SKU ===> done
+2. nama SKU sedang di teknisi => SKU History ===> done
+3. Tambahkan history penggunaan sparepart => done
+4. foto before dan after bisa multiple file dan diberi "remarks di masing-masing foto" ==> done
+5. Ready gudang => after qc => rubah jadi "Ready" ===> done
+6. Ready toko => setelah dikirim dari gudang => Ready store  ==> done
+7. ada bagian khusus untuk "SKU ID yang ready dan yang ready store" ada list barangnya ==> done
+8. Role sales :  => done
+Tabel:
+- nama customer, alamat, no telfon, SKU ID, Harga, Bukti transfer, Pembayaran pertama dan selanjutnya (jika sudah dilakukan pembayaran pertama maka status SKU ID tersebut menjadi "booked", jika nilai pembayaran sudah sesuai dengan harga SKU ID maka status berubah menjadi "SOLD", Jenis Pengiriman diketik dan (Upload File Resi Pengiriman), Bukti Penerimaan (Upload File)
+Ada tombol penambahan untuk tabel "+ Add Customer"
+
+Authorize:
+=> Barang yang Ready dan Ready Store
+
+9. Semua History sampai pengiriman akan masuk di SKU history => done
+10. Generate barcode untuk SKU ID (yang merekap semua history SKU tersebut) => done
+11. Stock opname bisa pengeditan inventory sparepart dilakukan oleh Warehouse manager dan harus meminta approval ke purchasing terkait perubahan tersebut.=> done
+12. Ketika technician telah melakukan sparepart installation dan terdapat "sparepart lama" maka harus di inventory kan kembali, namun dengan persetujuan lead technician. Lead Technician melakukan approval "sparepart lama tersebut namun dengan catatan harus menuliskan Nomor SKU nya" yang nantinya masuk ke dalam "inventory sparepart" milik warehouse manager. Pada dashboard Warehouse manager harus dipisahkan antara "sparepart yang di register manual dengan sparepart lama yang berasal dari lead technician". => done
+
+
+
+
+ssh root@31.97.48.133

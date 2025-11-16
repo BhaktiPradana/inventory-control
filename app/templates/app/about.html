@@ -1,0 +1,52 @@
+{% extends 'app/base.html' %}
+{% block title %}Tentang Sistem Kontrol Barang{% endblock %}
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h1 class="h4 mb-0">Tentang Aplikasi Kontrol Barang</h1>
+            </div>
+
+            <div class="card-body p-4">
+
+                <h2 class="h5">Selamat Datang di Sistem Manajemen Inventaris BringCo</h2>
+                <p class="lead text-muted">
+                    Ini adalah aplikasi internal yang dirancang untuk mengelola, melacak, dan memproses
+                    seluruh siklus hidup inventaris mesin dan suku cadang di BringCO.
+                </p>
+                <p>
+                    Sistem ini menangani semua proses mulai dari penerimaan barang (receiving), kontrol kualitas (QC),
+                    manajemen suku cadang (spare part), pergerakan barang (movement) ke toko,
+                    hingga penjualan (sales), dengan alur persetujuan yang jelas untuk setiap peran.
+                </p>
+
+                <hr class="my-4">
+
+                <h3 class="h5">Fitur Utama Sistem</h3>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">Manajemen Peran untuk Warehouse, Teknisi, Lead, Purchasing, & Sales.</li>
+                    <li class="list-group-item">Alur Receiving (Penerimaan PO & Registrasi SKU).</li>
+                    <li class="list-group-item">Alur Inventaris (Proses QC & Alur Persetujuan Spare Part).</li>
+                    <li class="list-group-item">Alur Movement (Pengiriman Barang ke Toko).</li>
+                    <li class="list-group-item">Alur Sales (Manajemen Order, Pembayaran, & Pengiriman).</li>
+                    <li class="list-group-item">Sistem Notifikasi antar departemen untuk PO bermasalah.</li>
+                </ul>
+
+                <hr class="my-4">
+
+                <h3 class="h5">Dukungan Teknis</h3>
+                <p>
+                    Jika Anda mengalami masalah teknis dengan aplikasi ini atau memiliki pertanyaan,
+                    silakan hubungi Administrator Sistem Anda.
+                </p>
+
+                <address>
+                    <strong>IT Support / Administrator:</strong><br>
+                    <a href="mailto:support@perusahaananda.com">support@BringCo.com</a><br>
+                </address>
+
+            </div>
+        </div>
+    </div>
+</div> {% endblock %}

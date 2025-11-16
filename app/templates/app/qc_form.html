@@ -1,0 +1,93 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Form Quality Control - {{ sku.sku_id }}{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Dashboard
+        </a>
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 text-center mb-4">Form Quality Control (QC)</h1>
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>SKU ID:</strong>
+                        <span class="text-primary fw-bold">{{ sku.sku_id }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Nama Mesin:</strong>
+                        <span>{{ sku.name }}</span>
+                    </li>
+                </ul>
+
+                {% if existing_form and existing_form.lead_technician_comments %}
+                <div class="alert alert-danger" role="alert">
+                    <h4 class="alert-heading">Form Ditolak oleh Lead Technician</h4>
+                    <strong>Komentar:</strong>
+                    <p class="mb-0">{{ existing_form.lead_technician_comments }}</p>
+                    <hr>
+                    <small class="mb-0">Silakan perbaiki dan submit ulang.</small>
+                </div>
+                <hr class="my-4">
+                {% endif %}
+
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="condition_notes" class="form-label fs-5">Catatan Kondisi Mesin:</label>
+                        <textarea class="form-control" id="condition_notes" name="condition_notes" rows="4" required>{{ existing_form.condition_notes|default:"" }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="qc_document_file" class="form-label fs-5">Upload File QC Form (Opsional)</label>
+                        <input class="form-control" type="file" id="qc_document_file" name="qc_document_file" accept=".pdf,.doc,.docx,.jpg,.png,.xlsx">
+                        {% if existing_form.qc_document_file %}
+                        <small class="text-muted">
+                            File saat ini:
+                            <a href="{{ existing_form.qc_document_file.url }}" target="_blank">{{ existing_form.qc_document_file.name }}</a>
+                        </small>
+                        {% endif %}
+                    </div>
+                    <div class="form-check form-switch fs-5 mb-3">
+                        <input class="form-check-input" type="checkbox" id="needs_spare_part" name="needs_spare_part">
+                        <label class="form-check-label" for="needs_spare_part">Butuh Spare Part?</label>
+                    </div>
+
+                    <div class="card card-body bg-light" id="spare_part_fields" style="display: none;">
+                        <h4 class="h5 mb-3">Detail Spare Part</h4>
+                        <div class="mb-3">
+                            <label for="part_name" class="form-label">Nama Part:</label>
+                            <input type="text" id="part_name" name="part_name" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label for="part_qty" class="form-label">Jumlah:</label>
+                            <input type="number" id="part_qty" name="part_qty" value="1" min="1" class="form-control" style="max-width: 150px;">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
+                        Submit Form QC (ke Lead Technician)
+                    </button>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('needs_spare_part').addEventListener('change', function () {
+        var sparePartFields = document.getElementById('spare_part_fields');
+        if (this.checked) {
+            sparePartFields.style.display = 'block';
+        } else {
+            sparePartFields.style.display = 'none';
+        }
+    });
+</script>
+
+{% endblock %}

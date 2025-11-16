@@ -1,0 +1,75 @@
+{% extends 'app/base.html' %}
+{% block title %}History SKU: {{ sku.sku_id }}{% endblock %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-dark text-white">
+        <h1 class="h4 mb-0">History Log untuk SKU: {{ sku.sku_id }}</h1>
+    </div>
+    <div class="card-body">
+        <h2 class="h5">{{ sku.name }}</h2>
+        <p class="mb-0"><strong>Status Saat Ini:</strong> {{ sku.get_status_display }}</p>
+        <p><strong>Lokasi Saat Ini:</strong> {{ sku.get_location_display }} ({{ sku.shelf_location|default:"-" }})</p>
+    </div>
+    <div class="text-center ms-3">
+        {% with full_sku_url=request.scheme|add:"://"|add:request.get_host|add:sku.get_absolute_url %}
+        {% qr_from_text full_sku_url size="M" %}
+        {% endwith %}
+        <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">Scan for History</small>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm mt-2" onclick="printQRCode('qr-print-area-{{ sku.id }}')">
+        <i class="bi bi-printer"></i> Print QR
+    </button>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h3 class="h5 mb-4">Timeline Aktivitas</h3>
+
+        <ul class="list-group list-group-flush">
+            {% for item in history_items %}
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">
+                        {% if item.type == 'Receiving' %} <i class="bi bi-box-arrow-in-down text-primary"></i> Receiving
+                        {% elif item.type == 'QC Submit' %} <i class="bi bi-clipboard-check text-warning"></i> QC Submit
+                        {% elif item.type == 'QC Approve' %} <i class="bi bi-check-circle text-success"></i> QC Approve
+                        {% elif item.type == 'QC Reject' %} <i class="bi bi-x-circle text-danger"></i> QC Reject
+                        {% elif item.type == 'Spare Part' %} <i class="bi bi-gear text-muted"></i> Spare Part
+                        {% elif item.type == 'Shelving' %} <i class="bi bi-grid text-info"></i> Shelving
+                        {% elif item.type == 'Movement' %} <i class="bi bi-truck text-secondary"></i> Movement
+                        {% elif item.type == 'Install Submit' %} <i class="bi bi-camera text-info"></i> Instalasi Disubmit
+                        {% elif item.type == 'Install Approve' %} <i class="bi bi-patch-check text-success"></i> Instalasi Disetujui
+                        {% elif item.type == 'Install Reject' %} <i class="bi bi-patch-exclamation text-danger"></i> Instalasi Ditolak
+                        {% elif item.type == 'Sales Order' %} <i class="bi bi-cart-plus text-primary"></i> Sales Order
+                        {% elif item.type == 'Payment' %} <i class="bi bi-cash-coin text-success"></i> Payment
+                        {% elif item.type == 'Shipping' %} <i class="bi bi-box-seam text-info"></i> Shipping
+                        {% elif item.type == 'Completed' %} <i class="bi bi-house-check text-success"></i> Completed
+                        {% else %} {{ item.type }}
+                        {% endif %}
+                    </div>
+
+                    {{ item.details|safe }}
+                </div>
+
+                <div class="ms-3 text-end" style="min-width: 120px;">
+                    <span class="text-muted" style="font-size: 0.85em;">
+                        {{ item.date|date:"d M Y" }}
+                    </span>
+                    <span class="text-muted d-block" style="font-size: 0.85em;">
+                        {{ item.date|date:"H:i" }}
+                    </span>
+                    <span class="badge bg-light text-dark rounded-pill d-block mt-1">
+                        {{ item.actor }}
+                    </span>
+                </div>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-center text-muted p-4">
+                Belum ada history untuk SKU ini.
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+{% endblock %}

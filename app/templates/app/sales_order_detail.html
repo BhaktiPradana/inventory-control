@@ -1,0 +1,134 @@
+{% extends 'app/base.html' %}
+{% load humanize %}
+
+{% block title %}Detail Order: {{ order.customer_name }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+    &larr; Kembali ke Dashboard Sales
+</a>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h1 class="h4 mb-0">Order: {{ order.customer_name }} ({{ order.sku.sku_id }})</h1>
+        <div>
+            {% if order.status == 'Sold' or order.status == 'Shipped' or order.status == 'Completed' %}
+            <span class="badge bg-success fs-6">{{ order.get_status_display }}</span>
+            {% elif order.status == 'Booked' %}
+            <span class="badge bg-info text-dark fs-6">{{ order.get_status_display }}</span>
+            {% else %}
+            <span class="badge bg-warning text-dark fs-6">{{ order.get_status_display }}</span>
+            {% endif %}
+            <span class="badge bg-dark fs-6">{{ order.sku.get_status_display }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h5 class="h6">Data Customer</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Nama:</strong> {{ order.customer_name }}</li>
+                    <li><strong>Telepon:</strong> {{ order.customer_phone }}</li>
+                    <li><strong>Alamat:</strong> {{ order.customer_address }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h5 class="h6">Data SKU</h5>
+                <ul class="list-unstyled">
+                    <li><strong>SKU ID:</strong> {{ order.sku.sku_id }}</li>
+                    <li><strong>Nama Mesin:</strong> {{ order.sku.name }}</li>
+                    <li><strong>Pengiriman:</strong> {{ order.shipping_type|default:"-" }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h5 class="h6">Data Keuangan</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Harga Jual:</strong> Rp {{ order.price|intcomma }}</li>
+                    <li><strong>Total Terbayar:</strong> Rp {{ total_paid|intcomma }}</li>
+                    <li class="{% if remaining_balance > 0 %}text-danger{% else %}text-success{% endif %} h5">
+                        <strong>Sisa Tagihan:</strong> Rp {{ remaining_balance|intcomma }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">
+                <h5 class="h6 mb-0">History Pembayaran</h5>
+            </div>
+            <div class="card-body">
+                <form action="{% url 'add_payment' order.id %}" method="POST" enctype="multipart/form-data" class="mb-3 p-3 border rounded bg-light">
+                    {% csrf_token %}
+                    <h6 class="mb-3">Tambah Pembayaran (Pertama/Selanjutnya)</h6>
+                    <div class="mb-3">
+                        <label class="form-label">{{ payment_form.amount.label }}</label>
+                        {{ payment_form.amount }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ payment_form.proof_of_transfer.label }}</label>
+                        {{ payment_form.proof_of_transfer }}
+                    </div>
+                    <button type="submit" class="btn btn-success">Simpan Pembayaran</button>
+                    <div class="form-text">Status order & SKU akan otomatis ter-update.</div>
+                </form>
+
+                <hr>
+
+                {% for payment in payments %}
+                <div class="d-flex justify-content-between align-items-center mb-2 border-bottom pb-2">
+                    <div>
+                        <span class="fw-bold fs-5 text-success">Rp {{ payment.amount|intcomma }}</span>
+                        <small class="text-muted d-block">{{ payment.payment_date|date:"d M Y, H:i" }}</Nsmall>
+                    </div>
+                    <a href="{{ payment.proof_of_transfer.url }}" target="_blank" class="btn btn-sm btn-outline-dark">
+                        <i class="bi bi-file-earmark-image"></i> Lihat Bukti Transfer
+                    </a>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">Belum ada pembayaran.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">
+                <h5 class="h6 mb-0">Data Pengiriman & Penerimaan</h5>
+            </div>
+            <div class="card-body">
+                <form action="{% url 'upload_shipping_files' order.id %}" method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ shipping_form.shipping_receipt.label }}</label>
+                        {{ shipping_form.shipping_receipt }}
+                        {% if order.shipping_receipt %}
+                        <div class="mt-1">
+                            <a href="{{ order.shipping_receipt.url }}" target="_blank">Lihat Resi Saat Ini</a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ shipping_form.proof_of_receipt.label }}</label>
+                        {{ shipping_form.proof_of_receipt }}
+                        {% if order.proof_of_receipt %}
+                        <div class="mt-1">
+                            <a href="{{ order.proof_of_receipt.url }}" target="_blank">Lihat Bukti Terima Saat Ini</a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-info">Simpan File</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

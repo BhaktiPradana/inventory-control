@@ -1,0 +1,271 @@
+{% extends 'app/base.html' %}
+{% load humanize %}
+
+{% block title %}Sales Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0 text-gray-800">Sales Dashboard</h1>
+    <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+        <i class="bi bi-plus-circle me-1"></i> + Add Customer
+    </button>
+</div>
+
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{% url 'sales_order_add' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addCustomerModalLabel">Tambah Data Customer & Order Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if add_order_form.errors %}
+                    <div class="alert alert-danger">
+                        <strong>Gagal menyimpan!</strong>
+                        {{ add_order_form.non_field_errors }}
+                        {% for field in add_order_form %}
+                        {% if field.errors %}
+                        <p class="mb-0">{{ field.label }}: {{ field.errors|join:", " }}</p>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_order_form.customer_name.label }}</label>
+                        {{ add_order_form.customer_name }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_order_form.customer_address.label }}</label>
+                        {{ add_order_form.customer_address }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_order_form.customer_phone.label }}</label>
+                        {{ add_order_form.customer_phone }}
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ add_order_form.sku.label }}</label>
+                            {{ add_order_form.sku }}
+                            <div class="form-text">Hanya SKU dengan status 'Ready Store' yang tampil.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">{{ add_order_form.price.label }}</label>
+                            {{ add_order_form.price }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ add_order_form.shipping_type.label }}</label>
+                        {{ add_order_form.shipping_type }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan & Buat Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <h3 class="h5 mb-3">Daftar Customer (Order) Saya</h3>
+        {% for order in my_orders %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold text-primary">{{ order.customer_name }}</h6>
+                <div>
+                    {% if order.status == 'Sold' or order.status == 'Shipped' or order.status == 'Completed' %}
+                    <span class="badge bg-success">{{ order.get_status_display }}</span>
+                    {% elif order.status == 'Booked' %}
+                    <span class="badge bg-info text-dark">{{ order.get_status_display }}</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">{{ order.get_status_display }}</span>
+                    {% endif %}
+
+                    <span class="badge bg-dark">{{ order.sku.get_status_display }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><strong>Telepon:</strong> {{ order.customer_phone }}</li>
+                            <li><strong>Alamat:</strong> {{ order.customer_address }}</li>
+                            <li><strong>Pengiriman:</strong> {{ order.shipping_type|default:"-" }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><strong>SKU ID:</strong> {{ order.sku.sku_id }}</li>
+                            <li><strong>Harga:</strong> Rp {{ order.price|intcomma }}</li>
+                            <li><strong>Total Bayar:</strong> Rp {{ order.get_total_paid|intcomma }}</li>
+                            <li class="{% if order.get_remaining_balance > 0 %}text-danger fw-bold{% else %}text-success fw-bold{% endif %}">
+                                <strong>Sisa Bayar:</strong> Rp {{ order.get_remaining_balance|intcomma }}
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <hr class="my-2">
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Order Dibuat: {{ order.created_at|date:"d M Y, H:i" }}</small>
+                    <a href="{% url 'sales_order_detail' order.id %}" class="btn btn-sm btn-outline-primary">
+                        Lihat Detail & Tambah Pembayaran <i class="bi bi-arrow-right-short"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                Anda belum memiliki data customer/order.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-success text-white">
+                <h3 class="h6 mb-0">List SKU Siap Jual</h3>
+            </div>
+
+            <ul class="nav nav-tabs nav-fill" id="readySkuTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="gudang-tab" data-bs-toggle="tab" data-bs-target="#gudang-tab-pane" type="button" role="tab" aria-controls="gudang-tab-pane" aria-selected="true">
+                        Ready
+                        <span class="badge bg-dark rounded-pill">
+                            {{ ready_skus_list.count|default:0 }}
+                        </span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="toko-tab" data-bs-toggle="tab" data-bs-target="#toko-tab-pane" type="button" role="tab" aria-controls="toko-tab-pane" aria-selected="false">
+                        Ready Store
+                        <span class="badge bg-dark rounded-pill">
+                            {{ shop_skus_list.count|default:0 }}
+                        </span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="p-2 bg-light border-bottom">
+                <input type="text" id="readySkuSearchInput" class="form-control form-control-sm" placeholder="Cari SKU Ready/Store..." autocomplete="off">
+            </div>
+
+            <div class="tab-content" id="readySkuTabContent">
+
+                <div class="tab-pane fade show active" id="gudang-tab-pane" role="tabpanel" aria-labelledby="gudang-tab" tabindex="0">
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <ul class="list-group list-group-flush">
+                            {% for sku in ready_skus_list %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 ready-sku-item">
+                                <a href="#"
+                                   class="text-decoration-none fw-bold sku-id-text"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#skuHistoryModal"
+                                   data-sku-id="{{ sku.id }}"
+                                   style="font-size: 0.9em;">
+                                    {{ sku.sku_id }} <i class="bi bi-search ms-1" style="font-size: 0.8rem;"></i>
+                                </a>
+                                <span class="text-muted small" style="font-size: 0.8em;">{{ sku.name|truncatechars:15 }}</span>
+                            </li>
+                            {% empty %}
+                            <li class="list-group-item text-center text-muted p-3">
+                                Tidak ada SKU Ready.
+                            </li>
+                            {% endfor %}
+                            <li class="list-group-item text-center text-muted p-3 no-gudang-match" style="display: none;">
+                                SKU tidak ditemukan.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="toko-tab-pane" role="tabpanel" aria-labelledby="toko-tab" tabindex="0">
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        <ul class="list-group list-group-flush">
+                            {% for sku in shop_skus_list %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 ready-sku-item">
+                                <a href="#"
+                                   class="text-decoration-none fw-bold sku-id-text"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#skuHistoryModal"
+                                   data-sku-id="{{ sku.id }}"
+                                   style="font-size: 0.9em;">
+                                    {{ sku.sku_id }} <i class="bi bi-search ms-1" style="font-size: 0.8rem;"></i>
+                                </a>
+                                <span class="text-muted small" style="font-size: 0.8em;">{{ sku.name|truncatechars:15 }}</span>
+                            </li>
+                            {% empty %}
+                            <li class="list-group-item text-center text-muted p-3">
+                                Tidak ada SKU Ready di Store.
+                            </li>
+                            {% endfor %}
+                            <li class="list-group-item text-center text-muted p-3 no-toko-match" style="display: none;">
+                                SKU tidak ditemukan.
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const readySearchInput = document.getElementById('readySkuSearchInput');
+
+                if (readySearchInput) {
+                    readySearchInput.addEventListener('keyup', function (e) {
+                        const term = e.target.value.toLowerCase();
+
+                        // --- Filter Tab Gudang ---
+                        const gudangRows = document.querySelectorAll('#gudang-tab-pane .ready-sku-item');
+                        let hasGudangResult = false;
+                        gudangRows.forEach(row => {
+                            const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
+                            if (skuText.includes(term)) {
+                                row.style.display = '';
+                                hasGudangResult = true;
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
+                        const noGudangMsg = document.querySelector('#gudang-tab-pane .no-gudang-match');
+                        if (noGudangMsg) {
+                            noGudangMsg.style.display = hasGudangResult ? 'none' : '';
+                        }
+
+                        // --- Filter Tab Toko ---
+                        const tokoRows = document.querySelectorAll('#toko-tab-pane .ready-sku-item');
+                        let hasTokoResult = false;
+                        tokoRows.forEach(row => {
+                            const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
+                            if (skuText.includes(term)) {
+                                row.style.display = '';
+                                hasTokoResult = true;
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
+                        const noTokoMsg = document.querySelector('#toko-tab-pane .no-toko-match');
+                        if (noTokoMsg) {
+                            noTokoMsg.style.display = hasTokoResult ? 'none' : '';
+                        }
+                    });
+                }
+            });
+        </script>
+        {% include 'app/_includes/sidebar_sku_status.html' %}
+    </div>
+</div>
+
+{% endblock %}

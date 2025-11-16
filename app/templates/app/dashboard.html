@@ -1,0 +1,45 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Selamat Datang{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid bg-light p-5 rounded-3 shadow-sm mb-4">
+    <div class="container">
+        <h1 class="display-4">Selamat Datang, {{ user.username }}!</h1>
+        <p class="lead">
+            Anda telah berhasil login ke Sistem Kontrol Barang.
+        </p>
+    </div>
+</div>
+
+<div class="alert alert-warning" role="alert">
+    <h4 class="alert-heading">Perhatian! Akun Belum Memiliki Peran.</h4>
+    <p>
+        Saat ini, akun Anda belum ditugaskan ke dalam peran (role) apapun
+        (misalnya: Warehouse Manager, Technician, Lead Technician, Purchasing,
+        <strong>atau Sales</strong>).
+    </p>
+    <hr>
+    <p class="mb-0">
+        Anda tidak akan melihat dashboard fungsional sampai Administrator sistem
+        memasukkan akun Anda ke dalam grup peran yang sesuai.
+    </p>
+</div>
+
+{% if user.is_superuser %}
+<div class="card mt-4 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">Tindakan Khusus Admin</h5>
+        <p class="card-text">
+            Anda adalah Superuser. Anda dapat menugaskan peran kepada pengguna (termasuk diri Anda sendiri)
+            melalui Panel Admin.
+        </p>
+        <a href="{% url 'admin:index' %}" class="btn btn-primary">
+            Buka Panel Admin untuk Menugaskan Peran
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

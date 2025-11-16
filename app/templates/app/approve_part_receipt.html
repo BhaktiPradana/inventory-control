@@ -1,0 +1,62 @@
+{% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Approve Penerimaan Part{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 col-md-8 mx-auto">
+
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Dashboard
+        </a>
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 text-center mb-4">Setujui Penerimaan Spare Part</h1>
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Part Diminta:</strong>
+                        <span class="fw-bold">{{ part_request.part_name }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Jumlah:</strong>
+                        <span>{{ part_request.quantity_needed }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Untuk SKU:</strong>
+                        <span>{{ sku.sku_id }} ({{ sku.name }})</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Teknisi:</strong>
+                        <span>{{ part_request.qc_form.technician.username }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Dikeluarkan oleh:</strong>
+                        <span>{{ part_request.warehouse_manager.username|default:"WM" }}</span>
+                    </li>
+                </ul>
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" name="approve" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Approve (Part Diterima & Teruskan ke Teknisi)
+                        </button>
+
+                        <button type="submit" name="reject" class="btn btn-danger btn-lg mt-2"
+                                onclick="return confirm('Anda yakin ingin menolak part ini dan mengembalikannya ke Warehouse Manager?')">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Reject (Kembalikan ke WM)
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

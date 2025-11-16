@@ -1,0 +1,146 @@
+{% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Proses Spare Part{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-lg-6 col-md-8 mx-auto">
+
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Dashboard WM
+        </a>
+
+        <div class="card shadow-sm">
+            <div class="card-body p-4 p-md-5">
+                <h1 class="h3 text-center mb-4">Proses Request Spare Part</h1>
+
+                <ul class="list-group list-group-flush mb-4">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Part Diminta:</strong>
+                            <div class="fs-5">{{ part_request.part_name }}</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#searchPartModal">
+                            <i class="bi bi-search me-1"></i> Cari Stok Manual
+                        </button>
+                    </li>
+
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Jumlah Diminta:</strong>
+                        <span>{{ part_request.quantity_needed }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Untuk SKU:</strong>
+                        <span>{{ sku.sku_id }} ({{ sku.name }})</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Teknisi:</strong>
+                        <span>{{ part_request.qc_form.technician.username }}</span>
+                    </li>
+
+                    <li class="list-group-item d-flex justify-content-between {% if current_stock < part_request.quantity_needed %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+                        <strong>Stok "{{ part_request.part_name }}" Saat Ini:</strong>
+                        <span class="fw-bold">{{ current_stock }}</span>
+                    </li>
+                </ul>
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <h3 class="h5 text-center mt-4">Pilih Aksi:</h3>
+
+                    <button type="submit" name="issue_part" class="btn btn-success btn-lg w-100 mt-3"
+                            {% if current_stock < part_request.quantity_needed %}disabled title="Stok tidak mencukupi"{% endif %}> <i class="bi bi-box-arrow-up me-2"></i> Issue Part (Stok: {{ current_stock }})
+                    </button>
+
+                    <p class="text-center text-muted small my-2">Akan mengurangi stok di inventory secara otomatis.</p>
+
+                    <hr>
+
+                    <button type="submit" name="approve_buy" class="btn btn-warning btn-lg w-100 text-dark">
+                        <i class="bi bi-cart-plus me-2"></i>
+                        Part Tidak Ready &rarr; Setujui Pembelian
+                    </button>
+                    <p class="text-center text-muted small mt-2">Akan meneruskan request ke Purchasing.</p>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="searchPartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-search me-2"></i>Cari di Inventory</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group mb-3">
+                    <input type="text" id="inventorySearchInput" class="form-control" placeholder="Ketik nama sparepart..." autocomplete="off">
+                    <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+                </div>
+
+                <div class="list-group" id="inventorySearchResults" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center text-muted p-3 small">Mulai ketik untuk mencari...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('inventorySearchInput');
+        const resultsContainer = document.getElementById('inventorySearchResults');
+        let debounceTimer;
+
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function (e) {
+                clearTimeout(debounceTimer);
+                const query = e.target.value.trim();
+
+                if (query.length < 2) {
+                    resultsContainer.innerHTML = '<div class="text-center text-muted p-3 small">Ketik minimal 2 huruf...</div>';
+                    return;
+                }
+
+                debounceTimer = setTimeout(() => {
+                    resultsContainer.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm text-primary"></div> Mencari...</div>';
+
+                    fetch(`/inventory/api/search/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            resultsContainer.innerHTML = '';
+                            if (data.length === 0) {
+                                resultsContainer.innerHTML = '<div class="text-center text-danger p-3">Tidak ditemukan.</div>';
+                            } else {
+                                data.forEach(item => {
+                                    const badgeClass = item.stock > 0 ? 'bg-success' : 'bg-danger';
+                                    const html = `
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1 fw-bold text-primary">${item.name}</h6>
+                                            <span class="badge ${badgeClass} rounded-pill">Stok: ${item.stock}</span>
+                                        </div>
+                                        <p class="mb-1 small">Lokasi: ${item.location} | Supplier: ${item.supplier}</p>
+                                        <small class="text-muted">SKU: ${item.sku_part}</small>
+                                    </div>
+                                    `;
+                                    resultsContainer.insertAdjacentHTML('beforeend', html);
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            resultsContainer.innerHTML = '<div class="text-center text-danger">Gagal memuat data.</div>';
+                        });
+                }, 500);
+            });
+        }
+    });
+</script>
+{% endblock %}

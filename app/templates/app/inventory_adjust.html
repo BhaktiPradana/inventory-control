@@ -1,0 +1,53 @@
+{% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 col-lg-6 mx-auto">
+
+        <a href="{% url 'inventory_dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Inventory
+        </a>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h1 class="h4 mb-0">{{ form_title }}</h1>
+            </div>
+            <div class="card-body p-4">
+
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    Anda sedang mengajukan perubahan jumlah stok. Perubahan ini memerlukan persetujuan dari Purchasing sebelum stok di sistem diperbarui.
+                </div>
+
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Nama Part:</strong>
+                        <span>{{ part.part_name }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>SKU Part:</strong>
+                        <span>{{ part.part_sku|default:"-" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between bg-light">
+                        <strong>Stok di Sistem Saat Ini:</strong>
+                        <span class="fw-bold fs-5">{{ part.quantity_in_stock }}</span>
+                    </li>
+                </ul>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-send-check me-2"></i> Kirim Permintaan Approval
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

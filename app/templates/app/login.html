@@ -1,0 +1,53 @@
+{% extends 'app/base.html' %}
+
+{% load static %}
+
+{% load crispy_forms_tags %}
+
+{% block title %}Login Sistem Kontrol Barang{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-md-6 col-lg-4 mx-auto">
+        <div class="card shadow-sm">
+            <div class="card-body p-4 p-md-5">
+
+                <div class="text-center mb-4">
+                    <img src="{% static 'app/images/bringco.png' %}" alt="Logo Perusahaan" class="img-fluid" style="max-height: 200px;">
+                </div>
+                <h1 class="h3 text-center mb-3">Silakan Login</h1>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger" role="alert">
+                        Username atau password Anda salah. Silakan coba lagi.
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">Username:</label>
+                        <input type="text" name="username" class="form-control" id="id_username" required autofocus>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">Password:</label>
+                        <input type="password" name="password" class="form-control" id="id_password" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 btn-lg mt-3">Login</button>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <p class="mb-1">Belum punya akun?</p>
+                        <a href="{% url 'register' %}">Daftar di sini</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+</div> {% endblock %}

@@ -1,0 +1,110 @@
+{% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Approval Penyesuaian Stok{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 col-lg-8 mx-auto">
+
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            &larr; Kembali ke Dashboard Purchasing
+        </a>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h1 class="h4 mb-0">Proses Approval Penyesuaian Stok</h1>
+                </div>
+                <div class="card-body p-4">
+
+                    <h2 class="h5">{{ adjustment.spare_part.part_name }}</h2>
+                    <p class="text-muted">SKU Part: {{ adjustment.spare_part.part_sku|default:"-" }}</p>
+
+                    <hr>
+
+                    <h3 class="h6">Detail Permintaan:</h3>
+                    <ul class="list-group list-group-flush mb-4">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Diminta oleh:</strong>
+                            <span>{{ adjustment.requested_by.username }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Tanggal Permintaan:</strong>
+                            <span>{{ adjustment.created_at|date:"d M Y H:i" }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Stok di Sistem:</strong>
+                            <span class="fw-bold">{{ adjustment.quantity_in_system }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <strong>Stok Aktual (Fisik):</strong>
+                            <span class="fw-bold text-primary fs-5">{{ adjustment.quantity_actual }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between
+                            {% if adjustment.difference>
+                            0 %} bg-success-light
+                            {% elif adjustment.difference < 0 %} bg-danger-light
+                            {% endif %}">
+                            <strong>Selisih:</strong>
+                            <span class="fw-bold fs-5 {% if adjustment.difference > 0 %}text-success{% elif adjustment.difference < 0 %}text-danger{% endif %}">
+                                {{ adjustment.difference }}
+                            </span>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Alasan dari WM:</strong>
+                            <p class="mb-0 text-muted p-2 bg-light rounded">{{ adjustment.reason|default:"(Tidak ada alasan)" }}</p>
+                        </li>
+                    </ul>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                            <i class="bi bi-x-circle me-2"></i> Tolak
+                        </button>
+                        <button type="submit" name="approve" class="btn btn-success">
+                            <i class="bi bi-check-circle me-2"></i> Setujui dan Perbarui Stok
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </form>
+
+        <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Tolak Penyesuaian</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Anda akan menolak permintaan penyesuaian stok untuk <strong>{{ adjustment.spare_part.part_name }}</strong>. Harap berikan alasan penolakan.</p>
+                            {{ reject_form|crispy }}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" name="reject" class="btn btn-danger">Kirim Penolakan</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+    /* Style helper untuk background */
+    .bg-success-light {
+        background-color: #e6f7ec;
+    }
+
+    .bg-danger-light {
+        background-color: #fdecea;
+    }
+</style>
+
+{% endblock %}
