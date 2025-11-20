@@ -54,4 +54,10 @@ urlpatterns = [
     path('sales/order/<int:order_id>/', views.sales_order_detail, name='sales_order_detail'),
     path('sales/order/<int:order_id>/payment/', views.add_payment, name='add_payment'),
     path('sales/order/<int:order_id>/shipping/', views.upload_shipping_files, name='upload_shipping_files'),
+    path('sales/quotation/add/', views.quotation_add, name='quotation_add'),
+    path('sales/quotation/<int:quotation_id>/', views.quotation_detail, name='quotation_detail'),
+    path('sales/order/<int:order_id>/print_label/', views.print_order_label, name='print_order_label'),
+    path('sales/order/<int:order_id>/print_invoice/', views.print_invoice_a4, name='print_invoice_a4'),
+    path('sales/quotation/<int:quotation_id>/print_a4/', views.print_quotation_a4, name='print_quotation_a4'),
+    path('sales/order/<int:order_id>/print_label/', views.print_order_label, name='print_order_label'),
 ]

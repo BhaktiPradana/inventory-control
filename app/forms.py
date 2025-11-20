@@ -1,8 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User, Group
-from .models import PurchaseOrder, SparePartInventory
-from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment
+from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation
 
 class CustomUserCreationForm(UserCreationForm):
     role = forms.ModelChoiceField(
@@ -22,11 +21,13 @@ class PurchaseOrderForm(forms.ModelForm):
         fields = ['po_number', 'expected_sku_count']
         labels = {
             'po_number': 'Nomor PO',
-            'expected_sku_count': 'Jumlah SKU Diharapkan'
+            'expected_sku_count': 'Jumlah SKU Diharapkan',
+            'buy_price': 'Harga Beli Total (Rp)'
         }
         widgets = {
             'po_number': forms.TextInput(attrs={'class': 'form-control'}),
             'expected_sku_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'buy_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
         }
 
 # Form untuk WM me-reject PO
@@ -97,7 +98,7 @@ class SalesOrderForm(forms.ModelForm):
     sku = forms.ModelChoiceField(
         queryset=SKU.objects.filter(status='Shop'),
         label='SKU Mesin (Hanya status Ready Store)',
-        widget=forms.Select(attrs={'class': 'form-select'})
+        widget=forms.Select(attrs={'class': 'form-select select2-sku', 'data-placeholder': 'Cari SKU Ready Store...'})
     )
 
     class Meta:
@@ -120,6 +121,55 @@ class SalesOrderForm(forms.ModelForm):
             'customer_phone': forms.TextInput(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
             'shipping_type': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+class QuotationForm(forms.ModelForm):
+    """Form untuk membuat Quotation."""
+    
+    quotation_number = forms.CharField(
+        max_length=100, 
+        required=False, 
+        label='Nomor Quotation (Opsional)',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contoh: Q-2025/01/001'})
+    )
+    
+    valid_until = forms.DateField(
+        label='Berlaku Sampai Tanggal',
+        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+        required=True # Wajib diisi untuk Quotation
+    )
+
+    # Tidak perlu filter 'Ready Store' untuk Quotation
+    sku = forms.ModelChoiceField(
+        queryset=SKU.objects.all(), # Tampilkan semua SKU
+        label='SKU Mesin ID',
+        widget=forms.Select(attrs={'class': 'form-select select2-sku', 'data-placeholder': 'Cari SKU...'})
+    )
+
+    class Meta:
+        model = Quotation
+        fields = [
+            'quotation_number', 'valid_until',
+            'sku', 'customer_name', 'customer_address', 'customer_phone', 
+            'quantity', 'price', 'extra_discount' 
+        ]
+        labels = {
+            'sku': 'SKU ID Mesin',
+            'customer_name': 'Nama Customer',
+            'customer_address': 'Alamat Customer',
+            'customer_phone': 'Nomor Telepon',
+            'quantity': 'Jumlah Unit Order',
+            'price': 'Harga Jual per Unit',
+            'extra_discount': 'Extra Discount (Rp)'
+        }
+        widgets = {
+            'sku': forms.Select(attrs={'class': 'form-select select2-sku'}),
+            'customer_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'customer_address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'customer_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'extra_discount': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}), 
         }
 
 class PaymentForm(forms.ModelForm):

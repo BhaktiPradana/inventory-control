@@ -21,5 +21,23 @@ Authorize:
 
 
 
+==========
+1. Tambah tombol search di SKU Mesin ready store pada pop up sales
+2. Diberi tombol print untuk data customer "ukuran 10x15 cm" 
+3. Ketika "tombol simpan & buat order" ditekan akan auto print invoice => A4
+4. Ada tombol quotation => nantinya ada menu tersendiri untuk pembuatan nya (SKU ID, Nama customer, alamat, telepon, dari "BRINGCO") jumlah, input harga. => print A4
+5. Dashboard stock opname di purchasing
+6. beli domain => bringco.id
+
+
+
+
+
+
 
 ssh root@31.97.48.133
+adduser bringco
+usermod -aG sudo bringco
+
+
+http://31.97.48.133/login/

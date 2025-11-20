@@ -63,6 +63,8 @@
     <Folder Include="InventoryControl\" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include=".env" />
+    <Content Include=".gitignore" />
     <Content Include="app\templates\app\approve_part_receipt.html" />
     <Content Include="app\templates\app\approve_stock_adjustment.html" />
     <Content Include="app\templates\app\assign_shelf.html" />
@@ -89,6 +91,7 @@
     <Content Include="app\templates\app\receiving_list.html" />
     <Content Include="app\templates\app\register.html" />
     <Content Include="app\templates\app\sales_order_detail.html" />
+    <Content Include="app\templates\app\sales_quotation_detail.html" />
     <Content Include="app\templates\app\sku_history.html" />
     <Content Include="app\templates\app\_includes\part_history_modal_content.html" />
     <Content Include="app\templates\app\_includes\sidebar_ready_sku_list.html" />

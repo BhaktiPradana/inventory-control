@@ -1,0 +1,113 @@
+{% extends 'app/base.html' %}
+{% load humanize %}
+
+{% block title %}Quotation: {{ quotation.customer_name }}{% endblock %}
+
+{% block content %}
+<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+    &larr; Kembali ke Sales Dashboard
+</a>
+
+<div class="card shadow-sm mb-4 border-info">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <h1 class="h4 mb-0">Quotation: {{ quotation.customer_name }} (Q#{{ quotation.quotation_number|default:quotation.id }})</h1>
+        <div>
+            <button type="button" class="btn btn-sm btn-light text-info me-2" onclick="printQuotationA4({{ quotation.id }})">
+                <i class="bi bi-printer"></i> Print Quotation A4
+            </button>
+            <span class="badge bg-light text-dark fs-6">{{ quotation.get_status_display }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5 class="h6 text-info">Informasi Quotation</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Nomor Quote:</strong> {{ quotation.quotation_number|default:"-" }}</li>
+                    <li><strong>Tanggal:</strong> {{ quotation.date|date:"d M Y" }}</li>
+                    <li><strong>Berlaku Sampai:</strong> {{ quotation.valid_until|date:"d M Y"|default:"-" }}</li>
+                    <li><strong>Sales Person:</strong> {{ quotation.sales_person.username }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5 class="h6 text-info">Data Customer</h5>
+                <ul class="list-unstyled">
+                    <li><strong>Nama:</strong> {{ quotation.customer_name }}</li>
+                    <li><strong>Telepon:</strong> {{ quotation.customer_phone }}</li>
+                    <li><strong>Alamat:</strong> {{ quotation.customer_address }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <hr>
+
+        <h5 class="h6 text-info">Detail Produk & Harga</h5>
+        <div class="row">
+            <div class="col-md-4">
+                <ul class="list-unstyled">
+                    <li><strong>SKU ID:</strong> {{ quotation.sku.sku_id }}</li>
+                    <li><strong>Nama Mesin:</strong> {{ quotation.sku.name }}</li>
+                    <li><strong>Status Mesin:</strong> {{ quotation.sku.get_status_display }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <ul class="list-unstyled">
+                    <li><strong>Jumlah Unit:</strong> {{ quotation.quantity }}</li>
+                    <li><strong>Harga per Unit:</strong> Rp {{ quotation.price|intcomma }}</li>
+                    <li><strong>Subtotal:</strong> Rp {{ quotation.get_subtotal|intcomma }}</li>
+                    <li><strong>Extra Discount:</strong> Rp {{ quotation.extra_discount|intcomma }}</li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h4 class="text-primary">
+                    <strong>Total Quotation:</strong>
+                    Rp {{ quotation.get_total_quote|intcomma }}
+                </h4>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="d-flex justify-content-end">
+            {# Contoh Tombol Aksi (Opsional): Konversi ke Order #}
+            <a href="#" class="btn btn-sm btn-success me-2">
+                Konversi menjadi Sales Order (Tindakan Lanjutan)
+            </a>
+            <a href="#" class="btn btn-sm btn-outline-info">
+                Kirim Quotation (Tindakan Lanjutan)
+            </a>
+        </div>
+    </div>
+    <div class="card-footer text-muted">
+        Quotation Dibuat: {{ quotation.created_at|date:"d M Y, H:i" }}
+    </div>
+</div>
+{% endblock %}
+
+{% block extrascripts %}
+<script>
+    function printQuotationA4(quotationId) {
+        const url = `/sales/quotation/${quotationId}/print_a4/`;
+        window.open(url, '_blank');
+    }
+
+    // LOGIKA AUTO-PRINT KETIKA PAGE DIBUKA DENGAN ?print=true
+    document.addEventListener('DOMContentLoaded', function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const quotationId = {{ quotation.id }}; // Ambil Quotation ID dari konteks Django
+
+        if (urlParams.get('print') === 'true') {
+
+            // 1. Panggil fungsi cetak Quotation A4
+            printQuotationA4(quotationId);
+
+            // 2. Hapus parameter query string agar page tidak mencetak ulang saat di-refresh
+            const newUrl = window.location.pathname;
+            window.history.replaceState(null, '', newUrl);
+
+            // 3. Tampilkan pesan konfirmasi (Opsional)
+            console.log("Quotation A4 dicetak otomatis.");
+        }
+    });
+</script>
+{% endblock extrascripts %}

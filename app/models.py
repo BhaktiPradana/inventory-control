@@ -15,6 +15,14 @@ class PurchaseOrder(models.Model):
     ]
     po_number = models.CharField(max_length=100, unique=True)
     expected_sku_count = models.IntegerField(default=0)
+    buy_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        default=0, 
+        help_text="Harga Beli Total PO dari Supplier",
+        null=True, # Memungkinkan null agar tidak error jika data lama tidak ada
+        blank=True
+    )
     forwarder_receipt = models.FileField(upload_to='receipts/', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending_Approval') # Default diubah
     delivery_receipt = models.FileField(upload_to='po_delivery_receipts/', blank=True, null=True)
@@ -297,6 +305,55 @@ class ReturnedPart(models.Model):
     def __str__(self):
         return f"Return: {self.part_name_reported} for {self.qc_form.sku.sku_id}"
 
+class Quotation(models.Model):
+    STATUS_CHOICES = [
+        ('Draft', 'Draft'),
+        ('Sent', 'Sent to Customer'),
+        ('Accepted', 'Accepted'),
+        ('Rejected', 'Rejected'),
+        ('Converted', 'Converted to Order'),
+    ]
+    quotation_number = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    date = models.DateField(default=timezone.now)
+    valid_until = models.DateField(null=True, blank=True)
+    extra_discount = models.DecimalField(max_digits=10, decimal_places=0, default=0, help_text="Diskon tambahan (Rp)")
+    
+    # 1. Data Customer
+    customer_name = models.CharField(max_length=255)
+    customer_address = models.TextField()
+    customer_phone = models.CharField(max_length=20)
+    
+    sku = models.ForeignKey(
+        SKU, 
+        on_delete=models.PROTECT, 
+        related_name='quotations',
+    )
+    quantity = models.PositiveIntegerField(default=1, help_text="Jumlah unit yang di-quote")
+    price = models.DecimalField(max_digits=10, decimal_places=0, help_text="Harga yang ditawarkan")
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Draft')
+    sales_person = models.ForeignKey(
+        User, 
+        on_delete=models.PROTECT, 
+        related_name='quotations',
+        limit_choices_to={'groups__name': 'Sales'}
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Quotation {self.quotation_number or self.id} - {self.customer_name} ({self.sku.sku_id})"
+    
+    @property
+    def get_subtotal(self):
+        """Menghitung subtotal sebelum diskon."""
+        return self.price * self.quantity
+
+    @property
+    def get_total_quote(self):
+        """Menghitung total harga quotation (Subtotal - Diskon)."""
+        return self.get_subtotal - self.extra_discount
+
 class SalesOrder(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending Payment'), # Baru dibuat
@@ -379,3 +436,4 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"Payment {self.id} for Order {self.sales_order.id} - {self.amount}"
+

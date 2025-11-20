@@ -10,7 +10,8 @@ from .models import (
     SparePartInventory,
     StockAdjustment,
     SalesOrder, 
-    Payment
+    Payment,
+    Quotation
 )
 
 admin.site.register(PurchaseOrder)
@@ -24,3 +25,4 @@ admin.site.register(SparePartInventory)
 admin.site.register(StockAdjustment)
 admin.site.register(SalesOrder)
 admin.site.register(Payment)
+admin.site.register(Quotation)
