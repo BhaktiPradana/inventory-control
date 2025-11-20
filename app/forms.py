@@ -18,17 +18,17 @@ class CustomUserCreationForm(UserCreationForm):
 class PurchaseOrderForm(forms.ModelForm):
     class Meta:
         model = PurchaseOrder
-        fields = ['po_number', 'expected_sku_count']
+        fields = ['po_number', 'expected_sku_count', 'buy_price']
         labels = {
             'po_number': 'Nomor PO',
             'expected_sku_count': 'Jumlah SKU Diharapkan',
             'buy_price': 'Harga Beli Total (Rp)'
-        }
+            }
         widgets = {
             'po_number': forms.TextInput(attrs={'class': 'form-control'}),
             'expected_sku_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
             'buy_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-        }
+            }
 
 # Form untuk WM me-reject PO
 class PORejectionForm(forms.ModelForm):
