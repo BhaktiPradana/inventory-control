@@ -5,43 +5,59 @@
 
 {% block content %}
 
-<a href="{% url 'po_approve_list' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    &larr; Kembali ke Daftar Approval
-</a>
-
 <div class="row">
     <div class="col-lg-7 mx-auto">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h1 class="h4 mb-0">Detail PO: {{ po.po_number }}</h1>
-            </div>
-            <div class="card-body p-4">
 
-                <ul class="list-group list-group-flush mb-4">
-                    <li class="list-group-item d-flex justify-content-between">
+        <a href="{% url 'po_approve_list' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar Approval
+        </a>
+
+        <div class="card card-glossy shadow-lg">
+
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-file-earmark-check me-2"></i> Detail PO: {{ po.po_number }}</h1>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+
+                <h2 class="h5 mb-4 text-primary text-center">Informasi Purchase Order</h2>
+
+                <ul class="list-group list-group-flush mb-5 border rounded">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>Nomor PO:</strong>
-                        <span class="fw-bold">{{ po.po_number }}</span>
+                        <span class="fw-bold text-dark">{{ po.po_number }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>Jumlah SKU Diharapkan:</strong>
-                        <span class="fw-bold">{{ po.expected_sku_count }}</span>
+                        <span class="fw-bold text-primary">{{ po.expected_sku_count }} unit</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
                         <strong>Status Saat Ini:</strong>
-                        <span class="badge bg-warning text-dark">{{ po.get_status_display }}</span>
+                        <span class="badge bg-warning text-dark py-2 px-3">{{ po.get_status_display }}</span>
                     </li>
+                    {% comment %}
+                    {% if po.created_by %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Dibuat oleh Purchasing:</strong>
+                        <span class="text-muted small">{{ po.created_by.username }}</span>
+                    </li>
+                    {% endif %}
+                    {% endcomment %}
                 </ul>
 
                 <hr class="my-4">
 
-                <div class="d-flex justify-content-between gap-3">
-                    <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                <h3 class="h5 text-center text-secondary mb-4">Keputusan Approval</h3>
+
+                <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+
+                    <button type="button" class="btn btn-danger btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
                         <i class="bi bi-x-circle me-2"></i> Tolak PO
                     </button>
 
                     <form method="POST" class="m-0">
                         {% csrf_token %}
-                        <button type="submit" name="approve" class="btn btn-success btn-lg">
+                        <button type="submit" name="approve" class="btn btn-success btn-lg shadow-sm">
                             <i class="bi bi-check-circle me-2"></i> Setujui & Lanjutkan PO
                         </button>
                     </form>
@@ -54,15 +70,17 @@
 
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="rejectModalLabel">Tolak Purchase Order?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+        <div class="modal-content card-glossy shadow-lg">
+
             <form method="POST">
                 {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="rejectModalLabel"><i class="bi bi-trash-fill me-2"></i> Tolak Purchase Order?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
                 <div class="modal-body">
-                    <p>Anda akan menolak PO <strong>{{ po.po_number }}</strong>. Harap berikan alasan penolakan.</p>
+                    <p>Anda akan menolak PO <strong class="text-danger">{{ po.po_number }}</strong>. Harap berikan alasan penolakan.</p>
+
                     {{ reject_form|crispy }}
                 </div>
                 <div class="modal-footer">
@@ -70,6 +88,7 @@
                     <button type="submit" name="reject" class="btn btn-danger">Ya, Tolak PO Ini</button>
                 </div>
             </form>
+
         </div>
     </div>
 </div>

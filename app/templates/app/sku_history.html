@@ -3,80 +3,97 @@
 {% block title %}History SKU: {{ sku.sku_id }}{% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
 
-<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    &larr; Kembali ke Dashboard
-</a>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
+            </a>
+            <button class="btn btn-primary btn-sm shadow-sm"
+                    onclick="printQRCode('qr-print-area-{{ sku.id }}')">
+                <i class="bi bi-printer"></i> Cetak QR Code
+            </button>
+        </div>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-dark text-white">
-        <h1 class="h4 mb-0">History Log untuk SKU: {{ sku.sku_id }}</h1>
-    </div>
-    <div class="card-body">
-        <h2 class="h5">{{ sku.name }}</h2>
-        <p class="mb-0"><strong>Status Saat Ini:</strong> {{ sku.get_status_display }}</p>
-        <p><strong>Lokasi Saat Ini:</strong> {{ sku.get_location_display }} ({{ sku.shelf_location|default:"-" }})</p>
-    </div>
-    <div class="text-center ms-3">
-        {% with full_sku_url=request.scheme|add:"://"|add:request.get_host|add:sku.get_absolute_url %}
-        {% qr_from_text full_sku_url size="M" %}
-        {% endwith %}
-        <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">Scan for History</small>
-    </div>
-    <button class="btn btn-outline-secondary btn-sm mt-2" onclick="printQRCode('qr-print-area-{{ sku.id }}')">
-        <i class="bi bi-printer"></i> Print QR
-    </button>
-</div>
-
-<div class="card shadow-sm">
-    <div class="card-body">
-        <h3 class="h5 mb-4">Timeline Aktivitas</h3>
-
-        <ul class="list-group list-group-flush">
-            {% for item in history_items %}
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-                <div class="ms-2 me-auto">
-                    <div class="fw-bold">
-                        {% if item.type == 'Receiving' %} <i class="bi bi-box-arrow-in-down text-primary"></i> Receiving
-                        {% elif item.type == 'QC Submit' %} <i class="bi bi-clipboard-check text-warning"></i> QC Submit
-                        {% elif item.type == 'QC Approve' %} <i class="bi bi-check-circle text-success"></i> QC Approve
-                        {% elif item.type == 'QC Reject' %} <i class="bi bi-x-circle text-danger"></i> QC Reject
-                        {% elif item.type == 'Spare Part' %} <i class="bi bi-gear text-muted"></i> Spare Part
-                        {% elif item.type == 'Shelving' %} <i class="bi bi-grid text-info"></i> Shelving
-                        {% elif item.type == 'Movement' %} <i class="bi bi-truck text-secondary"></i> Movement
-                        {% elif item.type == 'Install Submit' %} <i class="bi bi-camera text-info"></i> Instalasi Disubmit
-                        {% elif item.type == 'Install Approve' %} <i class="bi bi-patch-check text-success"></i> Instalasi Disetujui
-                        {% elif item.type == 'Install Reject' %} <i class="bi bi-patch-exclamation text-danger"></i> Instalasi Ditolak
-                        {% elif item.type == 'Sales Order' %} <i class="bi bi-cart-plus text-primary"></i> Sales Order
-                        {% elif item.type == 'Payment' %} <i class="bi bi-cash-coin text-success"></i> Payment
-                        {% elif item.type == 'Shipping' %} <i class="bi bi-box-seam text-info"></i> Shipping
-                        {% elif item.type == 'Completed' %} <i class="bi bi-house-check text-success"></i> Completed
-                        {% else %} {{ item.type }}
-                        {% endif %}
-                    </div>
-
-                    {{ item.details|safe }}
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header card-header-professional">
+                <h1 class="h4 mb-0"><i class="bi bi-clock-history me-2"></i> History Log untuk SKU: {{ sku.sku_id }}</h1>
+            </div>
+            <div class="card-body d-flex justify-content-between align-items-center p-4">
+                <div class="flex-grow-1 me-4">
+                    <h2 class="h5 text-primary">{{ sku.name }}</h2>
+                    <p class="mb-1">
+                        <strong>Status Saat Ini:</strong>
+                        <span class="badge bg-success py-2 px-3 fw-bold">{{ sku.get_status_display }}</span>
+                    </p>
+                    <p class="mb-0 small">
+                        <strong>Lokasi Saat Ini:</strong>
+                        <span class="text-info fw-bold">{{ sku.get_location_display }}</span> ({{ sku.shelf_location|default:"Belum Diatur" }})
+                    </p>
                 </div>
 
-                <div class="ms-3 text-end" style="min-width: 120px;">
-                    <span class="text-muted" style="font-size: 0.85em;">
-                        {{ item.date|date:"d M Y" }}
-                    </span>
-                    <span class="text-muted d-block" style="font-size: 0.85em;">
-                        {{ item.date|date:"H:i" }}
-                    </span>
-                    <span class="badge bg-light text-dark rounded-pill d-block mt-1">
-                        {{ item.actor }}
-                    </span>
+                <div class="text-center p-3 border rounded bg-white shadow-sm" id="qr-print-area-{{ sku.id }}">
+                    {% with full_sku_url=request.scheme|add:"://"|add:request.get_host|add:sku.get_absolute_url %}
+                    {% qr_from_text full_sku_url size="M" %}
+                    {% endwith %}
+                    <small class="d-block text-muted mt-2 fw-bold" style="font-size: 0.75rem;">SCAN FOR HISTORY</small>
                 </div>
-            </li>
-            {% empty %}
-            <li class="list-group-item text-center text-muted p-4">
-                Belum ada history untuk SKU ini.
-            </li>
-            {% endfor %}
-        </ul>
 
+            </div>
+        </div>
+
+        <div class="card card-glossy shadow-lg">
+            <div class="card-body p-4">
+                <h3 class="h5 mb-4 text-primary border-bottom pb-2"><i class="bi bi-list-timeline me-2"></i> Timeline Aktivitas</h3>
+
+                <ul class="list-group list-group-flush timeline-list">
+                    {% for item in history_items %}
+                    <li class="list-group-item d-flex justify-content-between align-items-start border-start border-3 border-primary ps-4 py-3">
+                        <div class="ms-0 me-auto flex-grow-1 pe-3">
+                            <div class="fw-bold fs-6 mb-1 text-dark">
+                                {% if item.type == 'Receiving' %} <i class="bi bi-box-arrow-in-down text-success me-1"></i> Penerimaan Barang
+                                {% elif item.type == 'QC Submit' %} <i class="bi bi-clipboard-check text-warning me-1"></i> QC Disubmit
+                                {% elif item.type == 'QC Approve' %} <i class="bi bi-check-circle text-primary me-1"></i> QC Disetujui
+                                {% elif item.type == 'QC Reject' %} <i class="bi bi-x-circle text-danger me-1"></i> QC Ditolak
+                                {% elif item.type == 'Spare Part' %} <i class="bi bi-gear text-info me-1"></i> Pemakaian Spare Part
+                                {% elif item.type == 'Shelving' %} <i class="bi bi-grid text-secondary me-1"></i> Penempatan Rak
+                                {% elif item.type == 'Movement' %} <i class="bi bi-truck text-dark me-1"></i> Proses Pengiriman
+                                {% elif item.type == 'Install Submit' %} <i class="bi bi-camera text-info me-1"></i> Instalasi Disubmit
+                                {% elif item.type == 'Install Approve' %} <i class="bi bi-patch-check text-primary me-1"></i> Instalasi Disetujui
+                                {% elif item.type == 'Install Reject' %} <i class="bi bi-patch-exclamation text-danger me-1"></i> Instalasi Ditolak
+                                {% elif item.type == 'Sales Order' %} <i class="bi bi-cart-plus text-success me-1"></i> Sales Order Dibuat
+                                {% elif item.type == 'Payment' %} <i class="bi bi-cash-coin text-success me-1"></i> Pembayaran Diterima
+                                {% elif item.type == 'Shipping' %} <i class="bi bi-box-seam text-info me-1"></i> Pengiriman Diproses
+                                {% elif item.type == 'Completed' %} <i class="bi bi-house-check text-success me-1"></i> Selesai (Completed)
+                                {% else %} {{ item.type }}
+                                {% endif %}
+                            </div>
+                            <div class="text-wrap mt-1 small text-muted">
+                                {{ item.details|safe }}
+                            </div>
+                        </div>
+
+                        <div class="ms-3 text-end flex-shrink-0" style="min-width: 120px;">
+                            <span class="badge bg-primary d-block py-1 fw-bold" style="font-size: 0.8em;">
+                                <i class="bi bi-person-fill me-1"></i> {{ item.actor }}
+                            </span>
+                            <span class="text-muted d-block small mt-1">
+                                <i class="bi bi-calendar"></i> {{ item.date|date:"d M Y" }}
+                            </span>
+                            <span class="text-muted d-block small">
+                                <i class="bi bi-clock"></i> {{ item.date|date:"H:i" }}
+                            </span>
+                        </div>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-center text-muted p-4">
+                        <i class="bi bi-info-circle me-1"></i> Belum ada history aktivitas yang tercatat untuk SKU ini.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
     </div>
 </div>
 

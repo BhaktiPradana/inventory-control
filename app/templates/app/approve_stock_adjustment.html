@@ -8,61 +8,66 @@
     <div class="col-md-10 col-lg-8 mx-auto">
 
         <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Dashboard Purchasing
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard Purchasing
         </a>
 
         <form method="POST">
             {% csrf_token %}
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h1 class="h4 mb-0">Proses Approval Penyesuaian Stok</h1>
+            <div class="card card-glossy shadow-lg">
+
+                <div class="card-header card-header-professional">
+                    <h1 class="h4 mb-0"><i class="bi bi-box-seam me-2"></i> Proses Approval Penyesuaian Stok</h1>
                 </div>
-                <div class="card-body p-4">
 
-                    <h2 class="h5">{{ adjustment.spare_part.part_name }}</h2>
-                    <p class="text-muted">SKU Part: {{ adjustment.spare_part.part_sku|default:"-" }}</p>
+                <div class="card-body p-4 p-md-5">
 
-                    <hr>
+                    <h2 class="h5 text-primary mb-2">{{ adjustment.spare_part.part_name }}</h2>
+                    <p class="text-muted small">SKU Part: {{ adjustment.spare_part.part_sku|default:"-" }}</p>
 
-                    <h3 class="h6">Detail Permintaan:</h3>
-                    <ul class="list-group list-group-flush mb-4">
-                        <li class="list-group-item d-flex justify-content-between">
+                    <hr class="my-4">
+
+                    <h3 class="h6 fw-bold text-secondary mb-3"><i class="bi bi-info-circle me-1"></i> Detail Permintaan Stock Opname:</h3>
+
+                    <ul class="list-group list-group-flush mb-4 border rounded">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <strong>Diminta oleh:</strong>
-                            <span>{{ adjustment.requested_by.username }}</span>
+                            <span class="text-dark">{{ adjustment.requested_by.username }}</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <strong>Tanggal Permintaan:</strong>
-                            <span>{{ adjustment.created_at|date:"d M Y H:i" }}</span>
+                            <span class="text-muted small">{{ adjustment.created_at|date:"d M Y H:i" }}</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <strong>Stok di Sistem:</strong>
-                            <span class="fw-bold">{{ adjustment.quantity_in_system }}</span>
+                            <span class="fw-bold">{{ adjustment.quantity_in_system }} unit</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between">
+                        <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
                             <strong>Stok Aktual (Fisik):</strong>
-                            <span class="fw-bold text-primary fs-5">{{ adjustment.quantity_actual }}</span>
+                            <span class="fw-bold text-primary fs-5">{{ adjustment.quantity_actual }} unit</span>
                         </li>
-                        <li class="list-group-item d-flex justify-content-between
-                            {% if adjustment.difference>
-                            0 %} bg-success-light
+                        <li class="list-group-item d-flex justify-content-between align-items-center
+                            {% if adjustment.difference > 0 %} bg-success-light
                             {% elif adjustment.difference < 0 %} bg-danger-light
                             {% endif %}">
                             <strong>Selisih:</strong>
-                            <span class="fw-bold fs-5 {% if adjustment.difference > 0 %}text-success{% elif adjustment.difference < 0 %}text-danger{% endif %}">
-                                {{ adjustment.difference }}
+                            <span class="fw-bold fs-5
+                                  {% if adjustment.difference > 0 %}text-success{% elif adjustment.difference < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                <i class="bi
+                                   {% if adjustment.difference > 0 %}bi-arrow-up-right{% elif adjustment.difference < 0 %}bi-arrow-down-left{% else %}bi-dash-lg{% endif %} me-1">
+                                </i> {{ adjustment.difference }}
                             </span>
                         </li>
                         <li class="list-group-item">
                             <strong>Alasan dari WM:</strong>
-                            <p class="mb-0 text-muted p-2 bg-light rounded">{{ adjustment.reason|default:"(Tidak ada alasan)" }}</p>
+                            <p class="mb-0 text-dark p-2 rounded border mt-2 small">{{ adjustment.reason|default:"(Tidak ada alasan)" }}</p>
                         </li>
                     </ul>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                    <div class="d-grid gap-3 d-md-flex justify-content-md-center mt-5">
+                        <button type="button" class="btn btn-danger btn-lg" data-bs-toggle="modal" data-bs-target="#rejectModal">
                             <i class="bi bi-x-circle me-2"></i> Tolak
                         </button>
-                        <button type="submit" name="approve" class="btn btn-success">
+                        <button type="submit" name="approve" class="btn btn-success btn-lg shadow-sm">
                             <i class="bi bi-check-circle me-2"></i> Setujui dan Perbarui Stok
                         </button>
                     </div>
@@ -73,15 +78,15 @@
 
         <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
-                <div class="modal-content">
+                <div class="modal-content card-glossy shadow-lg">
                     <form method="POST">
                         {% csrf_token %}
                         <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title">Tolak Penyesuaian</h5>
+                            <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i> Tolak Penyesuaian</h5>
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <p>Anda akan menolak permintaan penyesuaian stok untuk <strong>{{ adjustment.spare_part.part_name }}</strong>. Harap berikan alasan penolakan.</p>
+                            <p>Anda akan menolak permintaan penyesuaian stok untuk <strong class="text-primary">{{ adjustment.spare_part.part_name }}</strong>. Harap berikan alasan penolakan.</p>
                             {{ reject_form|crispy }}
                         </div>
                         <div class="modal-footer">

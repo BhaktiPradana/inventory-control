@@ -8,41 +8,46 @@
     <div class="col-md-8 col-lg-6 mx-auto">
 
         <a href="{% url 'inventory_dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Inventory
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Inventory
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-warning text-dark">
-                <h1 class="h4 mb-0">{{ form_title }}</h1>
-            </div>
-            <div class="card-body p-4">
+        <div class="card card-glossy shadow-lg">
 
-                <div class="alert alert-info small">
-                    <i class="bi bi-info-circle-fill me-2"></i>
-                    Anda sedang mengajukan perubahan jumlah stok. Perubahan ini memerlukan persetujuan dari Purchasing sebelum stok di sistem diperbarui.
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-arrow-down-up me-2"></i> **{{ form_title }}**</h1>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+
+                <div class="alert alert-warning card-glossy border border-warning shadow-sm small mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    **Perhatian:** Anda sedang mengajukan perubahan stok fisik. Perubahan ini memerlukan **Persetujuan dari Purchasing** sebelum stok di sistem diperbarui.
                 </div>
 
-                <ul class="list-group list-group-flush mb-3">
-                    <li class="list-group-item d-flex justify-content-between">
+                <h2 class="h5 mb-3 text-secondary">Detail Spare Part:</h2>
+                <ul class="list-group list-group-flush mb-4 border rounded">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>Nama Part:</strong>
-                        <span>{{ part.part_name }}</span>
+                        <span class="text-dark fw-bold">{{ part.part_name }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>SKU Part:</strong>
-                        <span>{{ part.part_sku|default:"-" }}</span>
+                        <span class="text-muted">{{ part.part_sku|default:"-" }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between bg-light">
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
                         <strong>Stok di Sistem Saat Ini:</strong>
-                        <span class="fw-bold fs-5">{{ part.quantity_in_stock }}</span>
+                        <span class="fw-bold fs-5 text-primary">{{ part.quantity_in_stock }}</span>
                     </li>
                 </ul>
 
                 <form method="POST">
                     {% csrf_token %}
+
                     {{ form|crispy }}
-                    <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-send-check me-2"></i> Kirim Permintaan Approval
+
+                    <div class="d-grid mt-5">
+                        <button type="submit" class="btn btn-primary btn-lg shadow">
+                            <i class="bi bi-send-check me-2"></i> **Kirim Permintaan Approval**
                         </button>
                     </div>
                 </form>

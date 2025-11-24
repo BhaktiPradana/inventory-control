@@ -8,30 +8,34 @@
     <div class="col-lg-8 mx-auto">
 
         <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Dashboard
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-body p-4 p-md-5">
-                <h1 class="h3 text-center mb-4">Form Quality Control (QC)</h1>
+        <div class="card card-glossy shadow-lg mb-4">
 
-                <ul class="list-group list-group-flush mb-4">
-                    <li class="list-group-item d-flex justify-content-between">
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-search me-2"></i> Form Quality Control (QC) SKU: {{ sku.sku_id }}</h1>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+
+                <ul class="list-group list-group-flush mb-4 border rounded">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>SKU ID:</strong>
                         <span class="text-primary fw-bold">{{ sku.sku_id }}</span>
                     </li>
-                    <li class="list-group-item d-flex justify-content-between">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
                         <strong>Nama Mesin:</strong>
                         <span>{{ sku.name }}</span>
                     </li>
                 </ul>
 
                 {% if existing_form and existing_form.lead_technician_comments %}
-                <div class="alert alert-danger" role="alert">
-                    <h4 class="alert-heading">Form Ditolak oleh Lead Technician</h4>
-                    <strong>Komentar:</strong>
-                    <p class="mb-0">{{ existing_form.lead_technician_comments }}</p>
-                    <hr>
+                <div class="alert alert-danger card-glossy shadow-sm border border-danger border-3" role="alert">
+                    <h4 class="alert-heading h5 text-danger fw-bold"><i class="bi bi-x-octagon-fill me-2"></i> Form Ditolak oleh Lead Technician</h4>
+                    <p class="mb-0"><strong>Komentar:</strong></p>
+                    <p class="mb-0 small" style="white-space: pre-wrap;">{{ existing_form.lead_technician_comments }}</p>
+                    <hr class="border-danger opacity-25">
                     <small class="mb-0">Silakan perbaiki dan submit ulang.</small>
                 </div>
                 <hr class="my-4">
@@ -39,39 +43,45 @@
 
                 <form method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="condition_notes" class="form-label fs-5">Catatan Kondisi Mesin:</label>
-                        <textarea class="form-control" id="condition_notes" name="condition_notes" rows="4" required>{{ existing_form.condition_notes|default:"" }}</textarea>
+
+                    <div class="mb-4">
+                        <label for="condition_notes" class="form-label fs-5 fw-bold text-secondary">Catatan Kondisi Mesin:</label>
+                        <textarea class="form-control" id="condition_notes" name="condition_notes" rows="4" required placeholder="Jelaskan hasil pemeriksaan dan kondisi fisik/fungsi mesin.">{{ existing_form.condition_notes|default:"" }}</textarea>
                     </div>
-                    <div class="mb-3">
-                        <label for="qc_document_file" class="form-label fs-5">Upload File QC Form (Opsional)</label>
+
+                    <div class="mb-4">
+                        <label for="qc_document_file" class="form-label fs-5 fw-bold text-secondary">Upload File QC Form (Opsional)</label>
                         <input class="form-control" type="file" id="qc_document_file" name="qc_document_file" accept=".pdf,.doc,.docx,.jpg,.png,.xlsx">
                         {% if existing_form.qc_document_file %}
-                        <small class="text-muted">
+                        <small class="text-muted d-block mt-1">
                             File saat ini:
-                            <a href="{{ existing_form.qc_document_file.url }}" target="_blank">{{ existing_form.qc_document_file.name }}</a>
+                            <a href="{{ existing_form.qc_document_file.url }}" target="_blank"><i class="bi bi-file-earmark-arrow-down me-1"></i> {{ existing_form.qc_document_file.name }}</a>
                         </small>
                         {% endif %}
                     </div>
-                    <div class="form-check form-switch fs-5 mb-3">
+
+                    <hr class="my-4">
+                    <div class="form-check form-switch fs-5 mb-4 p-4 card-glossy shadow-sm border border-primary-subtle">
                         <input class="form-check-input" type="checkbox" id="needs_spare_part" name="needs_spare_part">
-                        <label class="form-check-label" for="needs_spare_part">Butuh Spare Part?</label>
+                        <label class="form-check-label fw-bold text-primary" for="needs_spare_part">
+                            <i class="bi bi-tools me-1"></i> Butuh Spare Part?
+                        </label>
                     </div>
 
-                    <div class="card card-body bg-light" id="spare_part_fields" style="display: none;">
-                        <h4 class="h5 mb-3">Detail Spare Part</h4>
+                    <div class="card card-body bg-light border-primary border-2 shadow-sm mb-4" id="spare_part_fields" style="display: none;">
+                        <h4 class="h5 mb-3 fw-bold text-dark"><i class="bi bi-list-ul me-1"></i> Detail Permintaan Spare Part</h4>
                         <div class="mb-3">
-                            <label for="part_name" class="form-label">Nama Part:</label>
-                            <input type="text" id="part_name" name="part_name" class="form-control">
+                            <label for="part_name" class="form-label fw-bold small">Nama Part:</label>
+                            <input type="text" id="part_name" name="part_name" class="form-control" placeholder="Cth: Sensor A2, Baterai Lithium">
                         </div>
                         <div class="mb-3">
-                            <label for="part_qty" class="form-label">Jumlah:</label>
+                            <label for="part_qty" class="form-label fw-bold small">Jumlah:</label>
                             <input type="number" id="part_qty" name="part_qty" value="1" min="1" class="form-control" style="max-width: 150px;">
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
-                        Submit Form QC (ke Lead Technician)
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-5 shadow-lg">
+                        <i class="bi bi-send-fill me-2"></i> Submit Form QC (ke Lead Technician)
                     </button>
                 </form>
 
@@ -82,12 +92,30 @@
 <script>
     document.getElementById('needs_spare_part').addEventListener('change', function () {
         var sparePartFields = document.getElementById('spare_part_fields');
+        // Tambahkan atribut 'required' pada input field jika dicentang
+        var partNameInput = document.getElementById('part_name');
+        var partQtyInput = document.getElementById('part_qty');
+
         if (this.checked) {
             sparePartFields.style.display = 'block';
+            partNameInput.setAttribute('required', 'required');
+            partQtyInput.setAttribute('required', 'required');
         } else {
             sparePartFields.style.display = 'none';
+            partNameInput.removeAttribute('required');
+            partQtyInput.removeAttribute('required');
         }
     });
+
+    // Logika untuk mempertahankan status jika form gagal submit
+    document.addEventListener('DOMContentLoaded', function () {
+        var checkbox = document.getElementById('needs_spare_part');
+        var sparePartFields = document.getElementById('spare_part_fields');
+        if (checkbox.checked) {
+            sparePartFields.style.display = 'block';
+        }
+    });
+
 </script>
 
 {% endblock %}

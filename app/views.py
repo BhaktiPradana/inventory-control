@@ -25,6 +25,8 @@ import os
 from django.contrib.humanize.templatetags.humanize import intcomma
 from reportlab.platypus import Table, TableStyle 
 from django.contrib.staticfiles.finders import find as find_static 
+from reportlab.platypus import Table, TableStyle
+from django.db import transaction
 
 # --- Cek Role ---
 def is_warehouse_manager(user):
@@ -191,10 +193,9 @@ def sales_order_add(request):
             skus_under_tech = SKU.objects.filter(assigned_technician__isnull=False).select_related('assigned_technician').order_by('assigned_technician__username')
             ready_skus_list = SKU.objects.filter(status='Ready').order_by('name')
             shop_skus_list = SKU.objects.filter(status='Shop').order_by('name')
-
             context = {
                 'my_orders': my_orders,
-                'add_order_form': form, # Kirim form yang tidak valid agar error terlihat
+                'add_order_form': form,
                 'sidebar_skus_under_tech': skus_under_tech,
                 'ready_skus_list': ready_skus_list,
                 'shop_skus_list': shop_skus_list
@@ -260,6 +261,63 @@ def quotation_detail(request, quotation_id):
     }
     return render(request, 'app/sales_quotation_detail.html', context)
 
+@login_required(login_url='login')
+@user_passes_test(is_sales)
+def convert_quotation_to_order(request, quotation_id):
+    """Mengkonversi Quotation menjadi SalesOrder."""
+    quotation = get_object_or_404(Quotation, id=quotation_id, sales_person=request.user)
+    
+    if request.method == 'POST':
+        # 1. Validasi Status Quotation
+        if quotation.status == 'Converted':
+            # Tambahkan pesan error jika sudah dikonversi
+            messages.warning(request, f"Quotation ini sudah pernah dikonversi menjadi Sales Order #{quotation.converted_to_order.id}.")
+            # Redirect ke Sales Order yang sudah ada
+            return redirect('sales_order_detail', order_id=quotation.converted_to_order.id)
+
+        # 2. Validasi Ketersediaan SKU
+        # SalesOrder model Anda membatasi SKU hanya pada status 'Shop'
+        # SKU harus Ready Shop (karena SalesOrder hanya bisa dibuat dari SKU 'Shop')
+        if quotation.sku.status != 'Shop':
+            messages.error(request, f"Gagal konversi. SKU ID {quotation.sku.sku_id} tidak lagi berstatus 'Ready Shop' (Status saat ini: {quotation.sku.get_status_display()}).")
+            # Logika di sini penting: JIKA SKU BUKAN 'Shop', maka proses berhenti.
+            return redirect('quotation_detail', quotation_id=quotation.id)
+
+        try:
+            with transaction.atomic():
+                # 3. Buat SalesOrder Baru
+                new_order = SalesOrder.objects.create(
+                    customer_name=quotation.customer_name,
+                    customer_address=quotation.customer_address,
+                    customer_phone=quotation.customer_phone,
+                    sku=quotation.sku,
+                    price=quotation.get_total_quote, # Total quote sebagai harga jual final
+                    shipping_type="Diatur Kemudian", 
+                    status='Pending', # Status awal pending payment
+                    sales_person=request.user
+                )
+
+                # 4. Update status Quotation
+                quotation.status = 'Converted'
+                quotation.converted_to_order = new_order # Tautkan Quotation ke SalesOrder
+                quotation.save()
+
+                # 5. Update Status SKU (opsional, bisa jadi 'Booked' jika harga > 0)
+                # KARENA SalesOrder baru dibuat, statusnya 'Pending' (total paid = 0)
+                # Namun, kita asumsikan jika Order dibuat, SKU langsung di-Booked, tapi model Anda membiarkan status SKU 'Shop'
+                # Kita akan biarkan model SalesOrder yang mengurus update status SKU saat pembayaran masuk.
+                
+                messages.success(request, f"Quotation {quotation.quotation_number} berhasil dikonversi menjadi Sales Order #{new_order.id}. Order siap untuk proses pembayaran.")
+                return redirect('sales_order_detail', order_id=new_order.id)
+                
+        except Exception as e:
+            messages.error(request, f"Konversi gagal total (DB Error): {e}. Pastikan data SKU masih valid.")
+            # print(f"ERROR SAAT KONVERSI: {e}") # Debugging
+            return redirect('quotation_detail', quotation_id=quotation.id)
+
+    # Jika bukan POST request
+    return redirect('quotation_detail', quotation_id=quotation.id)
+
 
 @login_required(login_url='login')
 @user_passes_test(is_sales)
@@ -324,6 +382,40 @@ def upload_shipping_files(request, order_id):
             messages.success(request, "File pengiriman berhasil di-update.")
         else:
             messages.error(request, "Gagal meng-update file pengiriman.")
+            
+    return redirect('sales_order_detail', order_id=order.id)
+
+@login_required(login_url='login')
+@user_passes_test(is_sales)
+def process_shipping(request, order_id):
+    """
+    Mengubah status SalesOrder menjadi 'Shipped' jika sudah lunas ('Sold').
+    Ini adalah aksi klik tombol "Proses Shipping".
+    """
+    order = get_object_or_404(SalesOrder, id=order_id, sales_person=request.user)
+    
+    # Memeriksa apakah order sudah lunas (diasumsikan status 'Sold' berarti lunas)
+    if order.status != 'Sold':
+        messages.warning(request, "Aksi dibatalkan: Order harus lunas (status 'Sold') sebelum dapat diproses pengirimannya.")
+        return redirect('sales_order_detail', order_id=order.id)
+        
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # 1. Update status SalesOrder
+                order.status = 'Shipped'
+                order.shipped_at = timezone.now() # Opsi: Catat waktu pengiriman
+                order.save()
+                
+                # 2. Update status SKU terkait
+                # Asumsi: SalesOrder memiliki relasi ForeignKey ke SKU
+                if order.sku:
+                    order.sku.status = 'Delivering' 
+                    order.sku.save()
+                
+            messages.success(request, f"Order {order.id} berhasil diubah status menjadi Shipped.")
+        except Exception as e:
+            messages.error(request, f"Gagal memproses pengiriman: {e}")
             
     return redirect('sales_order_detail', order_id=order.id)
 
@@ -632,7 +724,7 @@ def _get_sku_history_context(sku_id):
                 'date': payment.payment_date,
                 'type': 'Payment',
                 'actor': sales_order.sales_person.username,
-                'details': f"Pembayaran diterima <strong>Rp {amount_formatted}</strong>. <a href='{payment.proof_of_transfer.url}' target='_blank' class='fw-normal text-decoration-none'>(Lihat Bukti)</a>"
+                'details': ( f"Pembayaran diterima <strong>Rp {amount_formatted}</strong>. <a href='{payment.proof_of_transfer.url}' target='_blank' class='fw-normal text-decoration-none text-info'> <i class='bi bi-receipt'></i> Lihat Bukti Transfer </a>")
             })
 
         # 8. Info Pengiriman (Shipping)
@@ -910,27 +1002,54 @@ def manage_sparepart(request, request_id):
     qc_form = part_request.qc_form
     sku = qc_form.sku
 
-    # Cek stok yang ada di inventory
-    try:
-        inventory_item = SparePartInventory.objects.get(part_name__iexact=part_request.part_name)
-        current_stock = inventory_item.quantity_in_stock
-    except SparePartInventory.DoesNotExist:
-        inventory_item = None
-        current_stock = 0
+    # Inisialisasi
+    inventory_item = part_request.issued_spare_part # Jika sudah pernah dipilih
+    current_stock = inventory_item.quantity_in_stock if inventory_item else 0
 
     if request.method == 'POST':
         if 'issue_part' in request.POST:
-            if inventory_item and inventory_item.quantity_in_stock >= part_request.quantity_needed:
+            
+            # 1. Ambil ID Part Inventory yang dipilih dari form POST
+            issued_part_id = request.POST.get('issued_part_id')
+            
+            if not issued_part_id:
+                messages.error(request, "Harap cari dan pilih spare part yang akan dikeluarkan dari inventaris.")
+                return redirect('manage_sparepart', request_id=request_id)
+
+            try:
+                # 2. Ambil objek SparePartInventory berdasarkan ID yang dipilih WM
+                inventory_item = SparePartInventory.objects.get(id=issued_part_id)
+                current_stock = inventory_item.quantity_in_stock
+            except SparePartInventory.DoesNotExist:
+                messages.error(request, "Spare Part Inventory tidak ditemukan.")
+                return redirect('manage_sparepart', request_id=request_id)
+            
+            
+            if current_stock >= part_request.quantity_needed:
                 
                 # --- LOGIKA AUTO-DEDUCTION ---
+                
+                # 3. Kurangi Stok
                 inventory_item.quantity_in_stock -= part_request.quantity_needed
+                
+                # Update status stok (jika habis)
+                if inventory_item.quantity_in_stock == 0:
+                    inventory_item.status = 'Out_Of_Stock'
+                elif inventory_item.quantity_in_stock > 0 and inventory_item.status != 'Ready':
+                    inventory_item.status = 'Ready'
+                    
                 inventory_item.save()
+                
+                # 4. Update Part Request (KONEKSI RELASI FOREINGKEY)
+                part_request.issued_spare_part = inventory_item # <<< INI PENTING
                 part_request.status = 'PENDING_LEAD_RECEIPT' 
                 part_request.warehouse_manager = request.user
                 part_request.managed_at = timezone.now()
                 part_request.save()
+                
+                messages.success(request, f"Part '{inventory_item.part_name}' berhasil dikeluarkan. Menunggu konfirmasi Lead Tech.")
             else:
-                messages.error(request, "Stok tidak mencukupi untuk 'Issue Part'.")
+                messages.error(request, "Stok tidak mencukupi untuk 'Issue Part'. Harap cek kembali inventaris atau Setujui Pembelian.")
 
         elif 'approve_buy' in request.POST:
             part_request.status = 'Approved_Buy'
@@ -940,12 +1059,18 @@ def manage_sparepart(request, request_id):
             messages.info(request, "Request pembelian telah diteruskan ke Purchasing.")
 
         return redirect('dashboard')
+    try:
+        display_item = SparePartInventory.objects.filter(part_name__iexact=part_request.part_name).first()
+        current_stock = display_item.quantity_in_stock if display_item else 0
+    except Exception:
+        current_stock = 0
+
 
     context = {
         'part_request': part_request,
         'sku': sku,
-        'current_stock': current_stock, # Kirim info stok ke template
-        'inventory_item': inventory_item # Kirim item inventory
+        'current_stock': current_stock,
+        'inventory_item': display_item # Kirim item yang dicari berdasarkan nama
     }
     return render(request, 'app/manage_sparepart.html', context)
 
@@ -1284,10 +1409,11 @@ def inventory_search_api(request):
         parts = SparePartInventory.objects.filter(
             Q(part_name__icontains=query) | 
             Q(part_sku__icontains=query)
-        ).order_by('-quantity_in_stock')[:10] # Limit 10 hasil
+        ).order_by('-quantity_in_stock')[:10]
         
         for part in parts:
             results.append({
+                'id': part.id, 
                 'name': part.part_name,
                 'stock': part.quantity_in_stock,
                 'location': part.location or '-',
@@ -1297,124 +1423,14 @@ def inventory_search_api(request):
             
     return JsonResponse(results, safe=False)
 
-@login_required(login_url='login')
-@user_passes_test(is_sales)
-def print_order_label(request, order_id):
-    """
-    Menghasilkan label/faktur mini dalam format PDF ukuran 10x15 cm.
-    Berisi info customer, SKU ID, dan Harga Beli.
-    """
-    order = get_object_or_404(SalesOrder, id=order_id, sales_person=request.user)
-
-    # 1. Setup Ukuran Kertas 10 cm x 15 cm (atau 100mm x 150mm)
-    # ReportLab menggunakan point (pt), di mana 1 cm = 28.3465 pt.
-    LABEL_WIDTH = 10 * cm
-    LABEL_HEIGHT = 15 * cm
-    
-    response = HttpResponse(content_type='application/pdf')
-    # Nama file PDF yang akan didownload
-    response['Content-Disposition'] = f'attachment; filename="Order_Label_{order.id}_{order.customer_name}.pdf"'
-
-    # Buat objek canvas PDF
-    p = canvas.Canvas(response, pagesize=(LABEL_WIDTH, LABEL_HEIGHT))
-    
-    # Inisialisasi Posisi Y (mulai dari atas)
-    y_position = LABEL_HEIGHT - 0.5 * cm 
-    x_margin = 0.5 * cm
-
-    # --- Header (Logo/Judul Perusahaan) ---
-    p.setFont('Helvetica-Bold', 12)
-    p.drawString(x_margin, y_position, "INVOICE/LABEL PENGIRIMAN")
-    y_position -= 0.6 * cm
-    p.setFont('Helvetica', 8)
-    p.drawString(x_margin, y_position, f"Order ID: {order.id}")
-    p.line(x_margin, y_position - 0.1 * cm, LABEL_WIDTH - x_margin, y_position - 0.1 * cm)
-    y_position -= 0.8 * cm
-
-    # --- Data Customer & Pengiriman ---
-    p.setFont('Helvetica-Bold', 10)
-    p.drawString(x_margin, y_position, "Data Customer:")
-    y_position -= 0.5 * cm
-    p.setFont('Helvetica', 9)
-    
-    # Nama Customer
-    p.drawString(x_margin, y_position, f"Nama: {order.customer_name}")
-    y_position -= 0.4 * cm
-    
-    # Telepon
-    p.drawString(x_margin, y_position, f"Telepon: {order.customer_phone}")
-    y_position -= 0.4 * cm
-    
-    # Pengiriman
-    p.drawString(x_margin, y_position, f"Pengiriman: {order.shipping_type or '-'}")
-    y_position -= 0.6 * cm
-    
-    # Alamat (Membutuhkan wrapping text, menggunakan TextObject untuk multi-line)
-    p.setFont('Helvetica-Bold', 9)
-    p.drawString(x_margin, y_position, "Alamat:")
-    y_position -= 0.4 * cm
-    
-    p.setFont('Helvetica', 9)
-    textobject = p.beginText(x_margin, y_position)
-    textobject.setFont('Helvetica', 9)
-    # Batasi lebar area teks (misal 9 cm)
-    address_text = order.customer_address
-    
-    # Sederhana: memotong alamat menjadi baris-baris
-    wrapped_address = textwrap.wrap(address_text, width=40) 
-    
-    for line in wrapped_address:
-        textobject.textLine(line)
-        y_position -= 0.35 * cm
-
-    p.drawText(textobject)
-    # Update y_position setelah alamat selesai
-    y_position -= 0.5 * cm # Spasi ekstra setelah alamat
-
-    # --- Data Barang & Harga ---
-    p.setFont('Helvetica-Bold', 10)
-    p.drawString(x_margin, y_position, "Detail Order:")
-    p.line(x_margin, y_position - 0.1 * cm, LABEL_WIDTH - x_margin, y_position - 0.1 * cm)
-    y_position -= 0.8 * cm
-    
-    p.setFont('Helvetica', 9)
-    
-    # SKU ID
-    p.drawString(x_margin, y_position, f"SKU ID: {order.sku.sku_id}")
-    y_position -= 0.4 * cm
-    
-    # Harga Beli (Harga Jual Final)
-    # Gunakan intcomma untuk format ribuan
-    harga_formatted = intcomma(order.price)
-    p.drawString(x_margin, y_position, f"Harga Jual: Rp {harga_formatted}")
-    y_position -= 0.4 * cm
-    
-    # Status
-    p.drawString(x_margin, y_position, f"Status: {order.get_status_display()}")
-    y_position -= 0.8 * cm
-    
-    # Garis Akhir
-    p.line(x_margin, y_position - 0.1 * cm, LABEL_WIDTH - x_margin, y_position - 0.1 * cm)
-    y_position -= 0.4 * cm
-    
-    # Footer/Tanda Tangan
-    p.setFont('Helvetica-Oblique', 7)
-    p.drawString(x_margin, y_position, f"Dicetak oleh Sales: {request.user.username} | {timezone.now().strftime('%d/%m/%Y %H:%M')}")
-
-
-    # Selesai menggambar PDF
-    p.showPage()
-    p.save()
-    return response
-
 def get_logo_path():
     """Mencoba menemukan logo di direktori statis."""
-    # Path yang Anda minta: 'app/images/bringco.png'
+    # Pastikan file logo Anda ada di direktori static: 'app/images/bringco.png'
     static_path = find_static('app/images/bringco.png')
     if static_path and os.path.exists(static_path):
         return static_path
-    
-    # Fallback jika tidak ditemukan (atau jika tidak menggunakan find_static)
+        
+    # Fallback jika tidak ditemukan
     try:
         if settings.STATICFILES_DIRS:
             logo_path_manual = os.path.join(settings.STATICFILES_DIRS[0], 'app/images/bringco.png')
@@ -1425,279 +1441,448 @@ def get_logo_path():
 
     return None
 
+@login_required(login_url='login')
+@user_passes_test(is_sales)
+def print_order_label(request, order_id):
+    """
+    Menghasilkan label/faktur mini dalam format PDF ukuran 10x15 cm.
+    """
+    order = get_object_or_404(SalesOrder, id=order_id, sales_person=request.user)
+    
+    # ... (Bagian setup dan header label 10x15 cm tidak ada perubahan signifikan) ...
+    LABEL_WIDTH = 10 * cm
+    LABEL_HEIGHT = 15 * cm
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Order_Label_{order.id}_{order.customer_name}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=(LABEL_WIDTH, LABEL_HEIGHT))
+    
+    x_margin = 0.5 * cm
+    y_position = LABEL_HEIGHT - x_margin
+    
+    # --- Header (Logo & Judul) ---
+    y_header_start = y_position
+    logo_path = get_logo_path()
+    
+    if logo_path:
+        try:
+            logo = ImageReader(logo_path)
+            logo_width = 3 * cm
+            aspect_ratio = logo.getSize()[1] / logo.getSize()[0]
+            logo_height = logo_width * aspect_ratio
+            
+            p.drawImage(logo, x_margin, y_header_start - logo_height, width=logo_width, height=logo_height)
+            y_position = y_header_start - logo_height - 0.2 * cm
+            
+            p.setFont('Helvetica-Bold', 12)
+            p.drawRightString(LABEL_WIDTH - x_margin, y_header_start - 0.5 * cm, "INVOICE PENGIRIMAN")
+            p.setFont('Helvetica', 8)
+            p.drawRightString(LABEL_WIDTH - x_margin, y_header_start - 0.8 * cm, "BringCo")
+            
+        except Exception:
+            p.setFont('Helvetica-Bold', 12)
+            p.drawString(x_margin, y_position, "INVOICE/LABEL PENGIRIMAN")
+            y_position -= 0.6 * cm
+            p.setFont('Helvetica', 8)
+            p.drawString(x_margin, y_position, "BringCo")
+            y_position -= 0.6 * cm
+    else:
+        p.setFont('Helvetica-Bold', 12)
+        p.drawString(x_margin, y_position, "INVOICE/LABEL PENGIRIMAN")
+        y_position -= 0.6 * cm
+        p.setFont('Helvetica', 8)
+        p.drawString(x_margin, y_position, "BringCo")
+        y_position -= 0.6 * cm
+        
+    p.line(x_margin, y_position, LABEL_WIDTH - x_margin, y_position)
+    y_position -= 0.5 * cm
+
+    # --- Informasi Umum Order (2 Kolom) ---
+    col1_x = x_margin
+    col2_x = LABEL_WIDTH / 2.0
+    
+    p.setFont('Helvetica', 9)
+    
+    # PERBAIKAN: Gunakan Helvetica-Bold untuk data penting, bukan string literal **
+    p.drawString(col1_x, y_position, f"Order ID:")
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(col1_x + 1.8 * cm, y_position, f"{order.id}") 
+    y_position -= 0.4 * cm
+    p.setFont('Helvetica', 9) # Reset
+    
+    p.drawString(col1_x, y_position, f"Tgl Order:")
+    p.drawString(col1_x + 1.8 * cm, y_position, f"{order.created_at.strftime('%d-%m-%Y')}")
+    y_position -= 0.4 * cm
+    
+    temp_y = y_position + 0.8 * cm
+    
+    p.drawString(col2_x, temp_y, f"Pengiriman:")
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(col2_x + 2.0 * cm, temp_y, f"{order.shipping_type or '-'}") 
+    temp_y -= 0.4 * cm
+    p.setFont('Helvetica', 9) # Reset
+    
+    p.drawString(col2_x, temp_y, f"Status:")
+    p.drawString(col2_x + 2.0 * cm, temp_y, f"{order.get_status_display()}")
+    
+    y_position = min(y_position, temp_y) - 0.5 * cm
+    p.line(x_margin, y_position, LABEL_WIDTH - x_margin, y_position)
+    y_position -= 0.5 * cm
+
+    # --- Data Customer & Alamat (Area Utama) ---
+    col1_x = x_margin
+    col2_x = LABEL_WIDTH / 2.0
+    
+    # Judul Kiri
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(col1_x, y_position, "PENERIMA:")
+    
+    # Judul Kanan
+    p.drawString(col2_x, y_position, "PENGIRIM:")
+    y_position -= 0.5 * cm
+    
+    p.setFont('Helvetica', 9)
+    current_y_col1 = y_position
+    current_y_col2 = y_position
+    
+    # Kolom Kiri: Penerima (Customer)
+    p.drawString(col1_x, current_y_col1, f"Nama: ") 
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(col1_x + 1.2 * cm, current_y_col1, f"{order.customer_name}")
+    p.setFont('Helvetica', 9) # Reset
+    current_y_col1 -= 0.4 * cm
+    p.drawString(col1_x, current_y_col1, f"Telp: {order.customer_phone}")
+    current_y_col1 -= 0.5 * cm
+    
+    # Alamat Penerima (di bawah Nama/Telp)
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(col1_x, current_y_col1, "Alamat:")
+    current_y_col1 -= 0.4 * cm
+    
+    p.setFont('Helvetica', 9)
+    textobject_addr = p.beginText(col1_x, current_y_col1)
+    textobject_addr.setFont('Helvetica', 9)
+    max_line_width_chars = int(4.5 * cm / (p.stringWidth('W', 'Helvetica', 9) / 1.0))
+    wrapped_address = textwrap.wrap(order.customer_address, width=max_line_width_chars)
+    
+    for line in wrapped_address:
+        textobject_addr.textLine(line)
+        current_y_col1 -= 0.35 * cm
+        
+    p.drawText(textobject_addr)
+    current_y_col1 -= 0.5 * cm
+
+    # Kolom Kanan: Pengirim (Perusahaan Anda)
+    p.drawString(col2_x, current_y_col2, f"Nama: BringCo")
+    current_y_col2 -= 0.4 * cm
+    p.drawString(col2_x, current_y_col2, f"Telp: +62-812-1414-4787")
+    current_y_col2 -= 0.4 * cm
+    p.drawString(col2_x, current_y_col2, f"Alamat: Jl. Tebet Timur Dalam II No.7 Kec. Tebet, Jakarta Selatan 12820")
+    current_y_col2 -= 0.5 * cm
+    
+    y_position = min(current_y_col1, current_y_col2) - 0.5 * cm
+    p.line(x_margin, y_position, LABEL_WIDTH - x_margin, y_position)
+    y_position -= 0.5 * cm
+    
+    # --- Detail Barang & Harga (Faktur Mini) ---
+    p.setFont('Helvetica-Bold', 10)
+    p.drawString(x_margin, y_position, "Detail Order (SKU ID & Harga):")
+    y_position -= 0.5 * cm
+    
+    p.setFont('Helvetica', 9)
+    
+    # Kiri: SKU
+    p.drawString(x_margin, y_position, f"SKU ID:")
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(x_margin + 2.0 * cm, y_position, f"{order.sku.sku_id}") # Bold SKU ID
+    p.setFont('Helvetica', 9) # Reset
+    
+    # Kanan: Harga
+    harga_formatted = intcomma(order.price)
+    p.drawString(LABEL_WIDTH - x_margin - 3.0 * cm, y_position, f"Harga Jual:")
+    p.setFont('Helvetica-Bold', 9)
+    p.drawRightString(LABEL_WIDTH - x_margin, y_position, f"Rp {harga_formatted}")
+    p.setFont('Helvetica', 9) # Reset
+    
+    y_position -= 0.8 * cm
+    
+    p.line(x_margin, y_position, LABEL_WIDTH - x_margin, y_position)
+    y_position -= 0.4 * cm
+    
+    # --- Footer ---
+    p.setFont('Helvetica-Oblique', 7)
+    p.drawString(x_margin, y_position, "Terima kasih telah berbelanja.")
+    p.drawRightString(LABEL_WIDTH - x_margin, y_position, 
+                     f"Dicetak oleh Sales: {request.user.username} | {timezone.now().strftime('%d/%m/%Y %H:%M')}")
+
+    p.showPage()
+    p.save()
+    return response
+
+
+# --- VIEW: PRINT INVOICE A4 ---
 
 @login_required(login_url='login')
 @user_passes_test(is_sales)
 def print_invoice_a4(request, order_id):
     """
     Menghasilkan Invoice penjualan dalam format PDF A4 yang profesional.
-    Menggunakan objek ReportLab Table untuk detail item.
+    Menggunakan teknik posisi X terhitung untuk meluruskan simbol ':'
     """
-    # 1. Setup Mock/Fetch Data
     try:
-        # Hapus/Ganti dengan baris fetch data Anda yang sebenarnya:
+        # Asumsi SalesOrder memiliki field/method:
+        # id, created_at, customer_name, customer_phone, customer_address, 
+        # shipping_type, price, sku.name, sku.sku_id, get_total_paid(), get_remaining_balance()
         order = get_object_or_404(SalesOrder, id=order_id, sales_person=request.user)
-        # Jika Anda menggunakan mock data, biarkan kode mock berjalan di sini:
-        
-        # NOTE: Jika Anda menggunakan mock data di lingkungan testing, 
-        # pastikan untuk mengganti ini dengan get_object_or_404 yang sebenarnya
-        # di lingkungan produksi.
-        
-        # Contoh Mock Class (Hanya untuk referensi jika Anda perlu debug di lingkungan tanpa DB):
-        # class MockSalesOrder:
-        #     def __init__(self, id, created_at, price, customer_name, customer_phone, customer_address, sku_name, sku_id):
-        #         import datetime
-        #         self.id = id
-        #         self.created_at = datetime.datetime.now()
-        #         self.price = 15500000.00
-        #         self.customer_name = "PT Pelanggan Sejati"
-        #         self.customer_phone = "0812-3456-7890"
-        #         self.customer_address = "Jalan Merdeka Raya No. 45, Komplek Perkantoran Indah, Jakarta Pusat, 10110."
-        #         class MockSKU:
-        #             def __init__(self, name, sku_id):
-        #                 self.name = name
-        #                 self.sku_id = sku_id
-        #         self.sku = MockSKU(sku_name, sku_id)
-        #     def get_total_paid(self): return 5000000.00
-        #     def get_remaining_balance(self): return self.price - self.get_total_paid()
-        # order = MockSalesOrder(id=order_id, created_at=None, price=0, customer_name="", customer_phone="", customer_address="", sku_name="Smartphone Flagship X1", sku_id="SFX1-2023-A")
-
     except Exception as e:
-        # Menangani jika get_object_or_404 gagal atau mock gagal
-        print(f"Error fetching order: {e}")
+        # Catch the actual database error or model not found
+        # print(f"Error fetching order: {e}") # Keep this for debugging if needed
         return HttpResponse("Order not found or database error.", status=404)
 
-    # 2. Setup Canvas A4
     response = HttpResponse(content_type='application/pdf')
     filename = f"INVOICE_ORDER_{order.id}.pdf"
-    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'    
 
     p = canvas.Canvas(response, pagesize=A4)
     width, height = A4
+    margin_x = 2 * cm
+    current_y = height - 2 * cm
 
-    # Margin dalam cm
-    margin_x = 1.5 * cm
+    # --- ZONA 1: HEADER PERUSAHAAN & JUDUL INVOICE (Tidak Berubah) ---
+    header_start_y = current_y
+    header_height = 2.5 * cm
     
-    current_y = height - 1.5 * cm # Mulai dari atas
-
-    # --- Header (Logo dan Info Perusahaan) ---
-    logo_path = get_logo_path()
-    
-    # Kordinat untuk kolom kiri/logo
+    # 1. Logo (Kiri)
     logo_x = margin_x
-    logo_y = current_y - 1.5 * cm
+    logo_y = header_start_y - 1.5 * cm
     
+    logo_path = get_logo_path() # Asumsi fungsi ini ada
     if logo_path:
         try:
             logo = ImageReader(logo_path)
-            # Resize logo (misalnya 4cm lebar, max 2cm tinggi)
-            logo_width = 4 * cm
-            logo_height = 2 * cm
-            p.drawImage(logo, logo_x, logo_y, width=logo_width, height=logo_height, mask='auto')
+            p.drawImage(logo, logo_x, logo_y, width=3.5*cm, height=3.5*cm, mask='auto')
         except Exception:
-            # Fallback jika ImageReader gagal
             p.setFont('Helvetica-Bold', 12)
-            p.drawString(logo_x, current_y - 1*cm, "BRINGCO (PT. XYZ)")
+            p.drawString(logo_x, logo_y + 0.5*cm, "BringCO")
     else:
         p.setFont('Helvetica-Bold', 12)
-        p.drawString(logo_x, current_y - 1*cm, "BRINGCO (PT. XYZ)")
+        p.drawString(logo_x, logo_y + 0.5*cm, "BringCO")
 
-    # Kordinat untuk Judul Invoice (Kanan Atas)
-    p.setFont('Helvetica-Bold', 18)
-    p.setFillColor(colors.HexColor('#007bff')) # Warna biru
-    p.drawCentredString(width - 5 * cm, current_y, "INVOICE PENJUALAN")
+    # 2. Info Perusahaan (Detail)
+    company_info_x = margin_x + 5 * cm
+    company_y = logo_y + 1.5 * cm
+    p.setFont('Helvetica-Bold', 9)
+    p.drawString(company_info_x, company_y, "BRINGCO")
+    company_y -= 0.4 * cm
+    p.setFont('Helvetica', 8)
+    p.drawString(company_info_x, company_y, "Jl. Tebet Timur Dalam II No.7 Kec. Tebet, Jakarta Selatan 12820 | Telp: +62-812-1414-4787")
+    company_y -= 0.4 * cm
+    p.drawString(company_info_x, company_y, "Email: bringco.hq@gmail.com")
+
+    # 3. Judul Invoice & Nomor (Kanan)
+    p.setFont('Helvetica-Bold', 22)
+    p.setFillColor(colors.HexColor('#007bff')) # Warna Corporate Blue
+    p.drawRightString(width - margin_x, header_start_y, "INVOICE")
     p.setFillColor(colors.black)
-    current_y -= 0.6 * cm
     
-    p.setFont('Helvetica', 10)
-    p.drawCentredString(width - 5 * cm, current_y, f"INV/{order.created_at.strftime('%Y%m')}/{order.id}")
-    current_y -= 0.5 * cm
+    p.setFont('Helvetica-Bold', 12)
+    p.drawRightString(width - margin_x, header_start_y - 0.7 * cm, "INVOICE NO:")
+    p.setFont('Helvetica', 12)
+    p.drawRightString(width - margin_x, header_start_y - 1.1 * cm, f"INV/{order.created_at.strftime('%Y%m')}/{order.id}")
     
-    # Info Perusahaan di Kanan
-    p.setFont('Helvetica', 9)
-    p.drawString(width - 7 * cm, current_y, "Jl. Contoh No. 123, Jakarta Selatan")
-    current_y -= 0.4 * cm
-    p.drawString(width - 7 * cm, current_y, "Telp: 021-12345 | Email: info@bringco.co.id")
-    
-    # Garis pemisah
-    current_y = height - 4 * cm
-    p.line(margin_x, current_y, width - margin_x, current_y) 
-    current_y -= 1 * cm
-    
-    # --- Detail Customer & Invoice Info (Menggunakan DrawString untuk tata letak kolom) ---
-    
-    # Kolom Kiri (Kepada Yth)
-    current_y_left = current_y
-    
+    current_y = header_start_y - header_height # Menentukan posisi Y setelah header
+    p.line(margin_x, current_y, width - margin_x, current_y) # Garis Penuh
+
+    # --- ZONA 2: DETAIL PELANGGAN & TANGGAL (Direvisi untuk Pelurusan ':') ---
+    current_y -= 0.8 * cm
+
+    # Tentukan posisi X untuk kolom ':' yang akan digunakan di kedua sisi
+    COLON_X_BILL_TO = margin_x + 2.5 * cm # Cukup ruang untuk "Telepon"
+    COLON_X_RIGHT = width / 2 + 1 * cm + 3.5 * cm # Cukup ruang untuk "Tanggal Invoice"
+
+    # Kolom Kiri (Bill To)
+    current_y_temp = current_y
     p.setFont('Helvetica-Bold', 11)
-    p.drawString(margin_x, current_y_left, "Kepada Yth. (Customer):")
-    current_y_left -= 0.5 * cm
+    p.drawString(margin_x, current_y_temp, "BILL TO:")
+    current_y_temp -= 0.5 * cm
+    
     p.setFont('Helvetica', 10)
-    p.drawString(margin_x, current_y_left, f"Nama: {order.customer_name}")
-    current_y_left -= 0.4 * cm
-    p.drawString(margin_x, current_y_left, f"Telepon: {order.customer_phone}")
-    current_y_left -= 0.4 * cm
+    
+    # Nama
+    p.drawString(margin_x, current_y_temp, "Nama")
+    p.drawString(COLON_X_BILL_TO, current_y_temp, ":")
+    p.drawString(COLON_X_BILL_TO + 0.2 * cm, current_y_temp, f"{order.customer_name}")
+    current_y_temp -= 0.4 * cm
+    
+    # Telepon
+    p.drawString(margin_x, current_y_temp, "Telepon")
+    p.drawString(COLON_X_BILL_TO, current_y_temp, ":")
+    p.drawString(COLON_X_BILL_TO + 0.2 * cm, current_y_temp, f"{order.customer_phone}")
+    current_y_temp -= 0.4 * cm
+    
+    # Alamat
+    p.drawString(margin_x, current_y_temp, "Alamat")
+    p.drawString(COLON_X_BILL_TO, current_y_temp, ":")
     
     # Alamat (wrapping)
-    p.drawString(margin_x, current_y_left, "Alamat:")
-    
-    textobject_addr = p.beginText(margin_x + 1.8 * cm, current_y_left)
+    address_x = COLON_X_BILL_TO + 0.2 * cm
+    textobject_addr = p.beginText(address_x, current_y_temp)
     textobject_addr.setFont('Helvetica', 10)
-    # Wrap alamat agar tidak melebihi kolom
-    wrapped_addr = textwrap.wrap(order.customer_address, width=35) # Sesuaikan width untuk ReportLab
+    # Sesuaikan lebar wrapping agar tidak bertabrakan dengan kolom kanan (sekitar 30 karakter)
+    wrapped_addr = textwrap.wrap(order.customer_address, width=30) 
     
-    temp_y = current_y_left
+    temp_y_addr = current_y_temp
     for line in wrapped_addr:
         textobject_addr.textLine(line)
-        temp_y -= 0.4 * cm
+        temp_y_addr -= 0.4 * cm
     p.drawText(textobject_addr)
-    current_y_left = temp_y
-    
-    # Kolom Kanan (Tanggal, Sales)
+    current_y_temp = temp_y_addr
+
+    # Kolom Kanan (Transaction Info)
     current_y_right = current_y
+    right_col_x = width / 2 + 1 * cm
+    
     p.setFont('Helvetica-Bold', 11)
-    p.drawString(width / 2 + 1 * cm, current_y_right, "Informasi Transaksi:")
+    p.drawString(right_col_x, current_y_right, "TRANSACTION INFO:")
     current_y_right -= 0.5 * cm
 
     p.setFont('Helvetica', 10)
-    p.drawString(width / 2 + 1 * cm, current_y_right, f"Tanggal Invoice:")
-    p.drawString(width - margin_x - 3 * cm, current_y_right, f"{order.created_at.strftime('%d %B %Y')}")
+    
+    # Tanggal Invoice
+    p.drawString(right_col_x, current_y_right, "Tanggal Invoice")
+    p.drawString(COLON_X_RIGHT, current_y_right, ":")
+    p.drawRightString(width - margin_x, current_y_right, f"{order.created_at.strftime('%d %B %Y')}")
     current_y_right -= 0.4 * cm
     
-    p.drawString(width / 2 + 1 * cm, current_y_right, f"Sales Person:")
-    p.drawString(width - margin_x - 3 * cm, current_y_right, f"{request.user.username}")
+    # Sales Person
+    p.drawString(right_col_x, current_y_right, "Sales Person")
+    p.drawString(COLON_X_RIGHT, current_y_right, ":")
+    p.drawRightString(width - margin_x, current_y_right, f"{request.user.username}")
     current_y_right -= 0.4 * cm
 
+    # Pengiriman
+    p.drawString(right_col_x, current_y_right, "Pengiriman")
+    p.drawString(COLON_X_RIGHT, current_y_right, ":")
+    p.drawRightString(width - margin_x, current_y_right, f"{order.shipping_type or 'N/A'}")
+    
     # Update current_y untuk memulai tabel
-    current_y = min(current_y_left, current_y_right) - 0.8 * cm
-
-
-    # --- Tabel Item (Menggunakan ReportLab Table) ---
-
-    # Data Tabel
-    table_data = [
-        # Header Row
-        ["No.", "Deskripsi Barang / Jasa (SKU ID)", "Kuantitas", "Harga Satuan (Rp)", "Total Harga (Rp)"]
-    ]
+    current_y = min(current_y_temp, current_y_right) - 0.8 * cm
+    p.line(margin_x, current_y, width - margin_x, current_y)    
+    current_y -= 0.5 * cm
     
-    # Baris Item (Asumsi Quantity selalu 1 untuk SalesOrder tunggal)
+    # --- ZONA 3: DETAIL ITEM TRANSAKSI ---
+    
     quantity = 1
     total_price_int = order.price * quantity
-
-    table_data.append([
-        "1.",
-        f"{order.sku.name}\n(ID: {order.sku.sku_id})",
-        f"{quantity}",
-        f"{intcomma(order.price)}",
-        f"{intcomma(total_price_int)}"
-    ])
-
-    # Tentukan lebar kolom
+    shipping_cost = 0 
+    
+    table_data = [
+        ["NO.", "DESCRIPTION (SKU ID)", "QTY", "UNIT PRICE (RP)", "LINE TOTAL (RP)"],
+        [
+            "1.",
+            f"{order.sku.name}\n(ID: {order.sku.sku_id})",
+            f"{quantity}",
+            f"{intcomma(order.price)}",
+            f"{intcomma(total_price_int)}"
+        ]
+    ]
+    content_width = width - 2 * margin_x
     col_widths = [
-        0.8 * cm, # No.
-        (width - 2 * margin_x - 0.8 * cm - 2 * 3.5 * cm) / 2, # Deskripsi
-        2.5 * cm, # Kuantitas
-        3.5 * cm, # Harga Satuan
-        3.5 * cm, # Total Harga
+        0.8 * cm, 
+        content_width * 0.45, 
+        2 * cm, 
+        content_width * 0.20, 
+        content_width * 0.20, 
     ]
     
-    # Buat objek Tabel
     item_table = Table(table_data, colWidths=col_widths)
-
-    # Gaya Tabel
     table_style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#007bff')), # Header Background (Biru)
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#007bff')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('ALIGN', (2, 1), (2, -1), 'CENTER'), # Kuantitas di tengah
-        ('ALIGN', (3, 1), (4, -1), 'RIGHT'), # Harga di kanan
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+        ('ALIGN', (3, 1), (4, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        ('TOPPADDING', (0, 1), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
     ])
     item_table.setStyle(table_style)
 
-    # Hitung tinggi tabel
     table_height = item_table.wrapOn(p, width, height)[1] 
     current_y -= table_height 
 
-    # Gambar Tabel
     item_table.drawOn(p, margin_x, current_y)
     
-    current_y -= 1 * cm
-    
-    # --- Total Tagihan dan Catatan ---
-    
-    # Kordinat Kanan untuk Total
-    total_x = width - margin_x - col_widths[-1] - col_widths[-2]
-    total_value_x = width - margin_x
-
-    # Garis pemisah Total
-    p.line(total_x - 0.5*cm, current_y, width - margin_x, current_y)
     current_y -= 0.5 * cm
     
-    # Subtotal
-    p.setFont('Helvetica', 10)
-    p.drawString(total_x, current_y, "Subtotal:")
-    p.drawRightString(total_value_x, current_y, f"Rp {intcomma(total_price_int)}")
-    current_y -= 0.4 * cm
-
-    # Biaya Pengiriman (Shipping)
-    shipping_cost = 0 # Asumsi
-    p.drawString(total_x, current_y, "Biaya Pengiriman:")
-    p.drawRightString(total_value_x, current_y, f"Rp {intcomma(shipping_cost)}")
-    current_y -= 0.5 * cm
+    # --- ZONA 4: RINGKASAN KEUANGAN (Kanan Bawah Tabel) ---
+    SUMMARY_TABLE_WIDTH = content_width * 0.40
+    SUMMARY_COL_WIDTHS = [SUMMARY_TABLE_WIDTH * 0.60, SUMMARY_TABLE_WIDTH * 0.40] 
+    summary_x = width - margin_x - SUMMARY_TABLE_WIDTH
+    summary_data = [
+        ["SUBTOTAL", f"Rp {intcomma(total_price_int)}"],
+        ["Biaya Pengiriman", f"Rp {intcomma(shipping_cost)}"],
+        ["TOTAL TAGIHAN", f"Rp {intcomma(total_price_int + shipping_cost)}"],
+        ["SUDAH TERBAYAR", f"Rp {intcomma(order.get_total_paid())}"],
+        ["SISA TAGIHAN", f"Rp {intcomma(order.get_remaining_balance())}"],
+        ]
+    summary_table = Table(summary_data, colWidths=SUMMARY_COL_WIDTHS)
+    summary_style = TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'), 
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'), 
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
+        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TEXTCOLOR', (1, 2), (1, 2), colors.darkgreen),
+        ('TEXTCOLOR', (1, 4), (1, 4), colors.red),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#E6FFE6')),
+        ('BACKGROUND', (0, 4), (-1, 4), colors.HexColor('#FFF2F2')),
+        ('RIGHTPADDING', (0, 0), (0, -1), 5), 
+        ])
+    summary_table.setStyle(summary_style)
+    summary_height = summary_table.wrapOn(p, width, height)[1]
     
-    # Garis pemisah Total
-    p.line(total_x - 0.5*cm, current_y, width - margin_x, current_y)
-    current_y -= 0.5 * cm
+    # Gambar Tabel Summary (Posisikan di pojok kanan bawah)
+    summary_table.drawOn(p, summary_x, current_y - summary_height)
+    current_y -= summary_height + 1 * cm
     
-    # TOTAL AKHIR
-    final_total = total_price_int + shipping_cost
-    p.setFont('Helvetica-Bold', 12)
-    p.setFillColor(colors.darkgreen)
-    p.drawString(total_x, current_y, "TOTAL TAGIHAN:")
-    p.drawRightString(total_value_x, current_y, f"Rp {intcomma(final_total)}")
-    current_y -= 1.5 * cm
-    p.setFillColor(colors.black)
-
-    # --- Area Pembayaran & Tanda Tangan ---
+    # --- ZONA 5: TERMS AND SIGNATURE ---
     
-    # Catatan Pembayaran (Kiri Bawah)
-    p.setFont('Helvetica', 9)
-    p.drawString(margin_x, current_y, "Informasi Pembayaran:")
-    current_y -= 0.4 * cm
-    p.drawString(margin_x, current_y, f"Pembayaran yang telah diterima: Rp {intcomma(order.get_total_paid())}")
-    current_y -= 0.4 * cm
-    
+    # Catatan Tambahan (Kiri)
     p.setFont('Helvetica-Bold', 10)
-    p.drawString(margin_x, current_y, f"SISA TAGIHAN (Jatuh Tempo): Rp {intcomma(order.get_remaining_balance())}")
+    p.drawString(margin_x, current_y, "CATATAN:")
     current_y -= 0.4 * cm
-    
     p.setFont('Helvetica', 9)
-    p.drawString(margin_x, current_y, "*Mohon lakukan pembayaran tepat waktu sesuai dengan ketentuan.")
-
+    p.drawString(margin_x, current_y, f"Sisa tagihan Rp {intcomma(order.get_remaining_balance())} jatuh tempo dalam 7 hari.")
+    current_y -= 0.4 * cm
+    p.drawString(margin_x, current_y, "Pembayaran dapat ditransfer ke Bank XYZ, A/N BRINGCO.")
+    
     # Tanda Tangan (Kanan Bawah)
-    ttd_x = width - 5 * cm
+    ttd_x = width - margin_x - 5 * cm
     
-    p.setFont('Helvetica', 10)
-    p.drawString(ttd_x, current_y, "Hormat Kami,")
-    current_y -= 0.4 * cm
-    p.drawString(ttd_x, current_y, f"Tanggal: {order.created_at.strftime('%d %B %Y')}")
-    current_y -= 2 * cm
+    # Y position untuk tanda tangan (misal 3.5 cm dari bawah)
+    final_y_pos = 4 * cm 
     
+    # Header Tanda Tangan
     p.setFont('Helvetica-Bold', 10)
-    p.drawCentredString(ttd_x + 2.5 * cm, current_y, f"{request.user.get_full_name() or request.user.username}")
-    p.line(ttd_x, current_y - 0.1 * cm, ttd_x + 5 * cm, current_y - 0.1 * cm)
-    current_y -= 0.5 * cm
+    p.drawCentredString(ttd_x + 2.5 * cm, final_y_pos, "Hormat Kami,")
+    
+    # Garis Tanda Tangan
+    p.line(ttd_x, final_y_pos - 1 * cm, ttd_x + 5 * cm, final_y_pos - 1 * cm)
+    
+    # Nama dan Jabatan
+    p.setFont('Helvetica-Bold', 10)
+    p.drawCentredString(ttd_x + 2.5 * cm, final_y_pos - 1.5 * cm, f"{request.user.get_full_name() or request.user.username}")
     p.setFont('Helvetica', 9)
-    p.drawCentredString(ttd_x + 2.5 * cm, current_y, "Sales Representative")
-
+    p.drawCentredString(ttd_x + 2.5 * cm, final_y_pos - 1.9 * cm, "Sales Representative")
+    
     p.showPage()
     p.save()
     return response
@@ -1706,222 +1891,247 @@ def print_invoice_a4(request, order_id):
 @user_passes_test(is_sales)
 def print_quotation_a4(request, quotation_id):
     """
-    Menghasilkan Quotation dalam format PDF A4 yang profesional sesuai permintaan.
+    Menghasilkan Quotation dalam format PDF A4 yang profesional.
     """
+    # 1. Fetch Data
     try:
+        # Asumsi SalesOrder, Quotation, dan SKU diimpor dari models
         quotation = get_object_or_404(Quotation, id=quotation_id, sales_person=request.user)
     except Exception as e:
         print(f"Error fetching quotation: {e}")
         return HttpResponse("Quotation not found or database error.", status=404)
 
-    # 1. Setup Canvas A4
+    # 2. Setup Canvas
     response = HttpResponse(content_type='application/pdf')
     filename = f"QUOTATION_{quotation.quotation_number or quotation.id}.pdf"
     response['Content-Disposition'] = f'inline; filename="{filename}"'
 
     p = canvas.Canvas(response, pagesize=A4)
     width, height = A4
-    margin_x = 1.5 * cm
-    current_y = height - 1.5 * cm # Mulai dari atas
+    margin_x = 2 * cm 
+    current_y = height - 2 * cm
 
-    # --- Header (Judul, No, Tanggal, Valid Until - SEMUA DI TENGAH) ---
-    p.setFont('Helvetica-Bold', 18)
-    p.setFillColor(colors.black)
+    # --- Header (Judul Dokumen & Info Quote) ---
+    
+    # Judul Utama
+    p.setFont('Helvetica-Bold', 20)
+    p.setFillColor(colors.HexColor('#007bff'))
     p.drawCentredString(width / 2, current_y, "SALES QUOTATION")
-    current_y -= 0.7 * cm
-    
+    current_y -= 0.8 * cm
+
+    # Info Quote Number & Date
+    p.setFillColor(colors.black)
     p.setFont('Helvetica-Bold', 12)
-    p.drawCentredString(width / 2, current_y, f"Quotation Number: {quotation.quotation_number or 'DRAFT'}")
-    current_y -= 0.5 * cm
     
-    p.setFont('Helvetica', 10)
-    p.drawCentredString(width / 2, current_y, f"Date: {quotation.date.strftime('%d %B %Y')}")
-    current_y -= 0.5 * cm
+    # Kiri: Quote Number
+    p.drawString(margin_x, current_y, "QUOTATION NO:")
+    p.setFont('Helvetica', 12)
+    p.drawString(margin_x + 3.5 * cm, current_y, f"{quotation.quotation_number or 'DRAFT'}")
     
-    p.drawCentredString(width / 2, current_y, f"Valid Until: {quotation.valid_until.strftime('%d %B %Y') if quotation.valid_until else 'N/A'}")
+    # Kanan: Date
+    p.setFont('Helvetica-Bold', 12)
+    p.drawRightString(width - margin_x - 3.5 * cm, current_y, "DATE:")
+    p.setFont('Helvetica', 12)
+    p.drawRightString(width - margin_x, current_y, f"{quotation.date.strftime('%d %b %Y')}")
+    current_y -= 0.6 * cm
+
+    # Kanan: Valid Until
+    p.setFont('Helvetica-Bold', 12)
+    p.drawRightString(width - margin_x - 3.5 * cm, current_y, "VALID UNTIL:")
+    p.setFont('Helvetica', 12)
+    valid_until_str = quotation.valid_until.strftime('%d %b %Y') if quotation.valid_until else 'N/A'
+    p.drawRightString(width - margin_x, current_y, valid_until_str)
     current_y -= 1 * cm
     
-    # Garis pemisah
     p.line(margin_x, current_y, width - margin_x, current_y)  
     current_y -= 0.8 * cm
 
-    # --- From (Kiri) dan To (Kanan) ---
+    # --- Customer (TO) dan Company (FROM) ---
     
-    # Kolom Kiri (From: Bring.co)
+    # Judul Kolom
+    p.setFont('Helvetica-Bold', 11)
+    p.drawString(margin_x, current_y, "BILL TO:")
+    p.drawString(width / 2 + 0.5 * cm, current_y, "FROM:")
+    current_y -= 0.5 * cm
+
+    # Detail Pelanggan (Kiri)
     current_y_temp = current_y
-    p.setFont('Helvetica-Bold', 11)
-    p.drawString(margin_x, current_y_temp, "From:")
-    current_y_temp -= 0.5 * cm
-    
     p.setFont('Helvetica', 10)
-    p.drawString(margin_x, current_y_temp, "Bring.co Jakarta")
+    
+    p.drawString(margin_x, current_y_temp, f"Contact: {quotation.customer_name}")
     current_y_temp -= 0.4 * cm
+    p.drawString(margin_x, current_y_temp, f"Phone: {quotation.customer_phone}")
+    current_y_temp -= 0.4 * cm
+    p.drawString(margin_x, current_y_temp, "Address:")
     
-    # Alamat From (Menggunakan TextObject untuk multi-line)
-    address_from = [
-        "Jl. Tebet Timur Dalam II No.7 Kec. Tebet,",
-        "Jakarta Selatan 12820",
-        "bringco.hq@gmail.com",
-        "+62-812-1414-4787",
-    ]
-    
-    for line in address_from:
-        p.drawString(margin_x, current_y_temp, line)
-        current_y_temp -= 0.4 * cm
-    
-    # Kolom Kanan (To: Customer)
-    current_y_right = current_y
-    right_x = width / 2 + 0.5 * cm
-    
-    p.setFont('Helvetica-Bold', 11)
-    p.drawString(right_x, current_y_right, "To:")
-    current_y_right -= 0.5 * cm
-    
-    p.setFont('Helvetica', 10)
-    p.drawString(right_x, current_y_right, f"Nama: {quotation.customer_name}")
-    current_y_right -= 0.4 * cm
-    
-    p.drawString(right_x, current_y_right, f"Telepon: {quotation.customer_phone}")
-    current_y_right -= 0.4 * cm
-    
-    # Alamat To (wrapping)
-    p.drawString(right_x, current_y_right, "Alamat:")
-    
-    textobject_addr = p.beginText(right_x + 1.8 * cm, current_y_right)
+    # Alamat Pelanggan (wrapping)
+    address_wrap_x = margin_x + 1.8 * cm
+    textobject_addr = p.beginText(address_wrap_x, current_y_temp)
     textobject_addr.setFont('Helvetica', 10)
-    wrapped_addr = textwrap.wrap(quotation.customer_address, width=30)
+    wrapped_addr = textwrap.wrap(quotation.customer_address, width=35) 
     
     for line in wrapped_addr:
         textobject_addr.textLine(line)
-        current_y_right -= 0.4 * cm
+        current_y_temp -= 0.4 * cm
     p.drawText(textobject_addr)
+
+    # Detail Perusahaan (Kanan)
+    current_y_right = current_y
+    right_x = width / 2 + 0.5 * cm
+    p.setFont('Helvetica', 10)
     
-    # Update current_y untuk memulai tabel
-    current_y = min(current_y_temp, current_y_right) - 0.8 * cm
+    address_from = [
+        "Bring.co Jakarta",
+        "Jl. Tebet Timur Dalam II No.7 Kec. Tebet, Jakarta Selatan 12820",
+        "Email: bringco.hq@gmail.com",
+        "Phone: +62-812-1414-4787",
+    ]
+    
+    for line in address_from:
+        p.drawString(right_x, current_y_right, line)
+        current_y_right -= 0.4 * cm
+
+    current_y = min(current_y_temp, current_y_right) - 0.5 * cm
 
 
     # --- Tabel Itemized Quotation Details ---
     
     p.setFont('Helvetica-Bold', 12)
-    p.drawCentredString(width / 2, current_y, "ITEMIZED QUOTATION DETAILS")
+    p.setFillColor(colors.HexColor('#333333'))
+    p.drawString(margin_x, current_y, "ITEMIZED QUOTATION DETAILS")
     current_y -= 0.5 * cm
     
     p.line(margin_x, current_y, width - margin_x, current_y)  
     current_y -= 0.1 * cm
 
-    # Data Tabel
+    price_per_unit = quotation.price
+    total_price = quotation.quantity * price_per_unit
+    
     table_data = [
-        # Header Row
-        ["No.", "Item Description", "Quantity", "Unit Price (Rp)", "Total Price (Rp)"]
+        ["No.", "Item Description (SKU ID)", "Quantity", "Unit Price (Rp)", "Line Total (Rp)"]
     ]
     
-    # Baris Item
-    total_price = quotation.quantity * quotation.price
-
+    # Baris Item: Perbaikan pemanggilan get_status_display
     table_data.append([
         "1.",
-        f"{quotation.sku.name}\n(SKU ID: {quotation.sku.sku_id})",
+        f"{quotation.sku.name}\n(SKU ID: {quotation.sku.sku_id})\nStatus: {quotation.sku.get_status_display()}", # <-- PERBAIKAN DI SINI
         f"{quotation.quantity}",
-        f"{intcomma(quotation.price)}",
+        f"{intcomma(price_per_unit)}",
         f"{intcomma(total_price)}"
     ])
 
-    # Tentukan lebar kolom
+    content_width = width - 2 * margin_x
     col_widths = [
-        0.8 * cm, 
-        (width - 2 * margin_x - 0.8 * cm - 3 * 3.5 * cm) / 2 + 1 * cm, # Deskripsi lebih lebar
-        2.5 * cm, 
-        3.5 * cm, 
-        3.5 * cm, 
+        1 * cm,
+        content_width * 0.45,
+        2 * cm,
+        content_width * 0.20,
+        content_width * 0.20,
     ]
     
     item_table = Table(table_data, colWidths=col_widths)
 
     table_style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ADD8E6')), # Light Blue Header 
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#007bff')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('ALIGN', (2, 1), (2, -1), 'CENTER'), # Kuantitas
-        ('ALIGN', (3, 1), (4, -1), 'RIGHT'), # Harga
+        ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+        ('ALIGN', (3, 1), (4, -1), 'RIGHT'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
         ('TOPPADDING', (0, 1), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
     ])
     item_table.setStyle(table_style)
 
-    # Hitung tinggi tabel
     table_height = item_table.wrapOn(p, width, height)[1]  
-    current_y -= table_height 
+    current_y -= table_height
 
-    # Gambar Tabel
     item_table.drawOn(p, margin_x, current_y)
     current_y -= 0.1 * cm
     
     # --- Baris Total (Kanan Bawah Tabel) ---
 
-    total_x_start = width - margin_x - 7 * cm # Start kolom deskripsi total
-    total_x_value = width - margin_x # End kolom nilai
+    total_width = (width - 2 * margin_x) * 0.40
     
-    # Subtotal
-    p.setFont('Helvetica', 10)
-    p.drawRightString(total_x_start, current_y, "Subtotal:")
-    p.drawRightString(total_x_value, current_y, f"Rp {intcomma(quotation.get_subtotal)}")
+    # Hitung posisi X: lebar total (dari kanan) dikurangi lebar tabel summary
+    summary_x = width - margin_x - total_width
+    SUMMARY_COL_WIDTHS_QUOTE = [total_width / 2.0, total_width / 2.0]
+    
     current_y -= 0.5 * cm
     
-    # Extra Discount
-    p.drawRightString(total_x_start, current_y, "Extra Discount:")
-    p.drawRightString(total_x_value, current_y, f"Rp {intcomma(quotation.extra_discount)}")
-    current_y -= 0.5 * cm
+    # SUMMARY TABLE FOR TOTALS
+    summary_data = [
+        ["Subtotal:", f"Rp {intcomma(quotation.get_subtotal)}"],
+        ["Extra Discount:", f"Rp {intcomma(quotation.extra_discount)}"],
+        ["TOTAL AMOUNT:", f"Rp {intcomma(quotation.get_total_quote)}"],
+    ]
 
-    p.line(total_x_start - 0.5*cm, current_y, width - margin_x, current_y)
-    current_y -= 0.5 * cm
+    summary_table = Table(summary_data, colWidths=SUMMARY_COL_WIDTHS_QUOTE)
 
-    # Total Amount
-    p.setFont('Helvetica-Bold', 12)
-    p.setFillColor(colors.HexColor('#007bff')) # Warna biru
-    p.drawRightString(total_x_start, current_y, "Total Amount:")
-    p.drawRightString(total_x_value, current_y, f"Rp {intcomma(quotation.get_total_quote)}")
-    p.setFillColor(colors.black)
+    # Style: Perbaikan Garis Total
+    summary_style = TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, -2), 'Helvetica'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -2), 10),
+        ('FONTSIZE', (0, -1), (-1, -1), 12),
+        ('TEXTCOLOR', (1, -1), (1, -1), colors.HexColor('#007bff')),
+        ('TOPPADDING', (0, -1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+        # Garis Tunggal di atas Total Amount
+        ('LINEBELOW', (0, -2), (-1, -2), 1, colors.black), 
+        # Garis Ganda/Tebal di bawah Total Amount
+        ('LINEBELOW', (0, -1), (-1, -1), 2, colors.HexColor('#007bff')), # <-- PERBAIKAN DI SINI
+    ])
+    summary_table.setStyle(summary_style)
+
+    summary_height = summary_table.wrapOn(p, width, height)[1]
+    current_y -= summary_height
+
+    # Gambar Tabel Summary di Kanan
+    summary_table.drawOn(p, summary_x, current_y)
     current_y -= 1 * cm
     
     # --- TERMS AND CONDITIONS (Pojok Kiri Bawah) ---
     
-    # Buat TextObject untuk Terms & Conditions
     terms_x = margin_x
-    terms_y = current_y
-
     p.setFont('Helvetica-Bold', 10)
-    p.drawString(terms_x, terms_y, "TERMS AND CONDITIONS:")
-    terms_y -= 0.5 * cm
+    p.drawString(terms_x, current_y, "TERMS AND CONDITIONS:")
+    current_y -= 0.5 * cm
     
     p.setFont('Helvetica', 9)
     terms_list = [
-        "Payment Terms: Down Payment is due within 7 days of the invoice date.",
-        "Delivery Time: Estimated delivery time is 2-7 business days after order confirmation.",
-        f"Validity: This quotation is valid until {quotation.valid_until.strftime('%d %B %Y') if quotation.valid_until else 'N/A'}.",
-        "Warranty: All products used come with a warranty of 1 month, except new products with a",
-        "warranty of 1 years.",
-        "Shipping: Shipping cost is calculated based on the delivery location."
+        "- Payment Terms: Down Payment is due within 7 days of the invoice date.",
+        "- Delivery Time: Estimated delivery time is 2-7 business days after order confirmation.",
+        f"- Validity: This quotation is valid until {quotation.valid_until.strftime('%d %B %Y') if quotation.valid_until else 'N/A'}.",
+        "- Warranty: All products used come with a warranty of 1 month, except new products with a",
+        "- warranty of 1 years.",
+        "- Shipping: Shipping cost is calculated based on the delivery location."
     ]
     
+    current_y -= 0.1 * cm
+    textobject_terms = p.beginText(terms_x, current_y)
     for line in terms_list:
-        p.drawString(terms_x, terms_y, line)
-        terms_y -= 0.4 * cm
-
-    # --- Approved by CEO (Pojok Kanan Bawah) ---
+        textobject_terms.textLine(line)
+        current_y -= 0.4 * cm
+    p.drawText(textobject_terms)
+    
+    # --- Approval (Pojok Kanan Bawah) ---
 
     ttd_x = width - margin_x - 5 * cm
-    
-    # Set y paling bawah untuk tanda tangan (misal 4 cm dari bawah)
     final_y_pos = 4 * cm
     
     p.setFont('Helvetica-Bold', 10)
     p.drawCentredString(ttd_x + 2.5 * cm, final_y_pos, "Approved by CEO")
+    
     p.line(ttd_x, final_y_pos - 0.1 * cm, ttd_x + 5 * cm, final_y_pos - 0.1 * cm)
     
     p.showPage()

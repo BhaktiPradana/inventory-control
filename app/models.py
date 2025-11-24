@@ -132,6 +132,14 @@ class SparePartRequest(models.Model):
     qc_form = models.ForeignKey(QCForm, on_delete=models.CASCADE, related_name='part_requests')
     part_name = models.CharField(max_length=255)
     quantity_needed = models.IntegerField(default=1)
+    issued_spare_part = models.ForeignKey(
+        'SparePartInventory', # Menggunakan string karena didefinisikan setelahnya
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='issued_requests',
+        help_text="Part dari inventory yang dikeluarkan oleh WM."
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     warehouse_manager = models.ForeignKey(
         User, 
@@ -154,7 +162,8 @@ class SparePartRequest(models.Model):
     managed_at = models.DateTimeField(null=True, blank=True)
     received_at = models.DateTimeField(null=True, blank=True)
     def __str__(self):
-        return f"{self.quantity_needed}x {self.part_name} for {self.qc_form.sku.sku_id}"
+        issued_sku = self.issued_spare_part.part_sku if self.issued_spare_part else 'N/A'
+        return f"{self.quantity_needed}x {self.part_name} (SKU: {issued_sku}) for {self.qc_form.sku.sku_id}"
 
 class TechnicianAnalytics(models.Model):
     technician = models.OneToOneField(
@@ -340,6 +349,14 @@ class Quotation(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    converted_to_order = models.ForeignKey(
+        'SalesOrder', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='converted_quotations',
+        help_text="Order hasil konversi dari quotation ini"
+    )
 
     def __str__(self):
         return f"Quotation {self.quotation_number or self.id} - {self.customer_name} ({self.sku.sku_id})"

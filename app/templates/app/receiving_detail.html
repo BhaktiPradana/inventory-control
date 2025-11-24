@@ -1,39 +1,46 @@
 {% extends 'app/base.html' %}
-{% load qr_code %} {% block title %}Proses PO: {{ po.po_number }}{% endblock %}
+{% load qr_code %}
+{% load crispy_forms_tags %}
+
+{% block title %}Proses PO: {{ po.po_number }}{% endblock %}
 
 {% block content %}
 
 <a href="{% url 'receiving_list' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    &larr; Kembali ke Daftar PO
+    <i class="bi bi-arrow-left me-1"></i> Kembali ke Daftar PO
 </a>
+
+<h1 class="h3 mb-4 fw-bold text-primary"><i class="bi bi-box-arrow-in-down me-2"></i> Proses Penerimaan Barang (PO: {{ po.po_number }})</h1>
 
 <div class="row g-4">
 
     <div class="col-lg-8">
-        <div class="card shadow-sm">
+        <div class="card card-glossy shadow-lg h-100">
+            <div class="card-header card-header-professional text-white">
+                <h2 class="h5 mb-0"><i class="bi bi-list-task me-2"></i> SKU yang Tiba & Terdaftar</h2>
+            </div>
             <div class="card-body p-4">
 
-                <h1 class="h3 mb-3">Detail PO: {{ po.po_number }}</h1>
-
-                <div class="d-flex align-items-center mb-3">
-                    <span class="me-2 fw-bold">Status:</span>
-                    <span class="badge rounded-pill
+                <div class="d-flex justify-content-between align-items-center mb-4 p-3 border rounded shadow-sm bg-light">
+                    <div>
+                        <span class="me-3 fw-bold">Nomor PO: <span class="text-primary">{{ po.po_number }}</span></span>
+                        <span class="me-3 fw-bold">SKU Diharapkan: <span class="badge bg-primary">{{ po.expected_sku_count }}</span></span>
+                        <span class="fw-bold">Terdaftar: <span class="badge bg-success">{{ po.skus.count }}</span></span>
+                    </div>
+                    <span class="badge rounded-pill py-2 px-3
                             {% if po.status == 'Finished' %}bg-success
-                            {% elif po.status == 'Delivered' %}bg-primary
+                            {% elif po.status == 'Delivered' %}bg-info text-dark
                             {% else %}bg-warning text-dark{% endif %}">
                         {{ po.status }}
                     </span>
                 </div>
-                <p class="mb-4">
-                    Jumlah SKU Terdaftar: <strong>{{ po.skus.count }} / {{ po.expected_sku_count }}</strong>
-                </p>
 
-                <hr>
+                <hr class="my-4">
 
-                <h3 class="h5 mt-4">SKU yang terdaftar di PO ini:</h3>
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
+                <h3 class="h5 mb-3 text-secondary">Daftar SKU:</h3>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
                             <tr>
                                 <th>SKU ID</th>
                                 <th>Nama Mesin/Part</th>
@@ -43,30 +50,36 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for sku in skus_in_po %}
+                            {% for sku in po.skus.all %}
                             <tr>
-                                <td>{{ sku.sku_id }}</td>
+                                <td class="fw-bold">{{ sku.sku_id }}</td>
                                 <td>{{ sku.name }}</td>
                                 <td>
+                                    <span class="badge
+                                        {% if sku.status == 'QC' %}bg-warning text-dark
+                                        {% elif sku.status == 'Ready' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ sku.get_status_display|default:sku.status }}
+                                    </span>
                                 </td>
-                                <td>{{ sku.assigned_technician.username }}</td>
+                                <td>{{ sku.assigned_technician.username|default:"-" }}</td>
 
                                 <td class="text-center">
                                     <div id="qr-print-area-{{ sku.id }}">
-                                        <h6 style="font-size: 10px; margin-bottom: 2px; font-family: sans-serif;">{{ sku.sku_id }}</h6>
+                                        <h6 style="font-size: 10px; margin-bottom: 2px; font-family: sans-serif; font-weight: bold;">{{ sku.sku_id }}</h6>
                                         {% with full_sku_url=request.scheme|add:"://"|add:request.get_host|add:sku.get_absolute_url %}
                                         {% qr_from_text full_sku_url size="T" %}
                                         {% endwith %}
                                     </div>
-                                    <button class="btn btn-outline-secondary btn-sm mt-2" onclick="printQRCode('qr-print-area-{{ sku.id }}')">
-                                        <i class="bi bi-printer"></i> Print
+                                    <button class="btn btn-outline-info btn-sm mt-2" onclick="printQRCode('qr-print-area-{{ sku.id }}')">
+                                        <i class="bi bi-printer"></i> Print QR
                                     </button>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
-                                    Belum ada SKU yang ditambahkan untuk PO ini.
+                                <td colspan="5" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Belum ada SKU yang ditambahkan untuk PO ini.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -75,25 +88,29 @@
                 </div>
             </div>
         </div>
-    </div> <div class="col-lg-4">
-        <div class="card shadow-sm mb-4">
+    </div>
+
+    <div class="col-lg-4">
+
+        <div class="card card-glossy shadow-lg mb-4">
             <div class="card-header bg-success text-white">
-                <h3 class="h5 mb-0">Tambahkan SKU Baru</h3>
+                <h3 class="h5 mb-0"><i class="bi bi-plus-circle me-2"></i> Tambahkan SKU Baru</h3>
             </div>
             <div class="card-body">
                 <p class="small text-muted">Daftarkan SKU dan tugaskan ke Teknisi.</p>
                 <form method="POST">
                     {% csrf_token %}
+                    <input type="hidden" name="add_sku_form" value="1">
                     <div class="mb-3">
-                        <label for="sku_id" class="form-label">SKU ID (dari Mesin):</label>
+                        <label for="sku_id" class="form-label fw-bold small">SKU ID (dari Mesin):</label>
                         <input type="text" id="sku_id" name="sku_id" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label for="sku_name" class="form-label">Nama Mesin/Aksesori:</label>
+                        <label for="sku_name" class="form-label fw-bold small">Nama Mesin/Aksesori:</label>
                         <input type="text" id="sku_name" name="sku_name" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label for="technician" class="form-label">Tugaskan ke Teknisi:</label>
+                        <label for="technician" class="form-label fw-bold small">Tugaskan ke Teknisi:</label>
                         <select id="technician" name="technician" class="form-select" required>
                             <option value="">--- Pilih Teknisi ---</option>
                             {% for tech in technicians %}
@@ -101,49 +118,76 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" name="add_sku" class="btn btn-success w-100">Tambah dan Tugaskan SKU</button>
+                    <div class="d-grid">
+                        <button type="submit" name="add_sku" class="btn btn-success w-100 shadow-sm">Tambah & Tugaskan SKU</button>
+                    </div>
                 </form>
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
+        <div class="card card-glossy shadow-lg mb-4">
             <div class="card-header bg-primary text-white">
-                <h3 class="h5 mb-0">Upload Delivery Receipt (DR)</h3>
+                <h3 class="h5 mb-0"><i class="bi bi-receipt-cutoff me-2"></i> Upload Delivery Receipt (DR)</h3>
             </div>
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="hidden" name="upload_dr_form" value="1">
                     <div class="mb-3">
-                        <label for="dr_file" class="form-label">File DR dari Forwarder:</label>
+                        <label for="dr_file" class="form-label fw-bold small">File DR dari Forwarder:</label>
                         <input type="file" id="dr_file" name="delivery_receipt_file" class="form-control" required>
                     </div>
-                    <button type="submit" name="upload_dr" class="btn btn-primary w-100">Upload DR</button>
+                    <div class="d-grid">
+                        <button type="submit" name="upload_dr" class="btn btn-primary w-100 shadow-sm">Upload DR</button>
+                    </div>
                 </form>
                 {% if po.delivery_receipt %}
                 <p class="mt-3 small text-muted text-center">
-                    File DR Saat Ini: <a href="{{ po.delivery_receipt.url }}" target="_blank">Lihat DR</a>
+                    File DR Saat Ini: <a href="{{ po.delivery_receipt.url }}" target="_blank"><i class="bi bi-file-earmark-check"></i> Lihat DR</a>
                 </p>
                 {% endif %}
             </div>
         </div>
 
-        <div class="card shadow-sm">
+        <div class="card card-glossy shadow-lg">
             <div class="card-header bg-danger text-white">
-                <h3 class="h5 mb-0">Packing List Gagal?</h3>
+                <h3 class="h5 mb-0"><i class="bi bi-exclamation-triangle me-2"></i> Packing List Gagal?</h3>
             </div>
             <div class="card-body">
                 <form method="POST">
                     {% csrf_token %}
+                    <input type="hidden" name="packing_list_form" value="1">
                     <div class="mb-3">
-                        <label for="rejection_message" class="form-label">Alasan (Wajib diisi):</label>
+                        <label for="rejection_message" class="form-label fw-bold small">Alasan (Wajib diisi):</label>
                         <textarea name="rejection_message" class="form-control" rows="3" required></textarea>
                     </div>
-                    <button type="submit" name="packing_list_not_ok" class="btn btn-danger w-100">
-                        Packing List TIDAK SESUAI (Lapor ke Purchasing)
-                    </button>
+                    <div class="d-grid">
+                        <button type="submit" name="packing_list_not_ok" class="btn btn-danger w-100 shadow-sm">
+                            <i class="bi bi-x-octagon me-1"></i> Packing List TIDAK SESUAI
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
 
     </div>
-</div> {% endblock %}
+</div>
+<script>
+    // Fungsi printQRCode diasumsikan ada di base.html
+    function printQRCode(elementId) {
+        var printContent = document.getElementById(elementId).innerHTML;
+        var printWindow = window.open('', '_blank', 'height=500,width=500');
+        printWindow.document.write('<html><head><title>Print QR Code</title>');
+        printWindow.document.write('<style> body { text-align: center; margin-top: 50px; } </style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(printContent);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(function () {
+            printWindow.print();
+            printWindow.close();
+        }, 500);
+    }
+</script>
+{% endblock %}

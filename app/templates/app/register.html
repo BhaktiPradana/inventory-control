@@ -1,5 +1,4 @@
 {% extends 'app/base.html' %}
-
 {% load crispy_forms_tags %}
 
 {% block title %}Registrasi Akun Baru{% endblock %}
@@ -9,29 +8,37 @@
 <div class="row">
     <div class="col-lg-6 col-md-8 mx-auto">
 
-        <div class="card shadow-sm">
+        <div class="card card-glossy shadow-lg">
+
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-person-plus-fill me-2"></i> Buat Akun Baru</h1>
+            </div>
+
             <div class="card-body p-4 p-md-5">
 
-                <h1 class="h3 text-center mb-4">Buat Akun Baru</h1>
+                <h2 class="h5 mb-4 text-center text-primary">Isi detail akun Anda di bawah:</h2>
 
                 <form method="post">
                     {% csrf_token %}
 
                     {{ form|crispy }}
 
-                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-4">
-                        Daftar
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-4 shadow-sm">
+                        <i class="bi bi-person-check-fill me-2"></i> Daftar Akun
                     </button>
                 </form>
 
-                <hr class="my-4"> <div class="text-center">
-                    <p class="mb-0">Sudah punya akun?</p>
-                    <a href="{% url 'login' %}" class="btn btn-outline-secondary">
-                        Kembali ke Halaman Login
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <p class="mb-2 small text-muted">Sudah punya akun?</p>
+                    <a href="{% url 'login' %}" class="btn btn-outline-secondary shadow-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Kembali ke Halaman Login
                     </a>
                 </div>
 
             </div>
         </div>
     </div>
-</div> {% endblock %}
+</div>
+{% endblock %}

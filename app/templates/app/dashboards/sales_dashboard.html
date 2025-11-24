@@ -5,78 +5,78 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0 text-gray-800">Sales Dashboard</h1>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0 text-primary fw-bold"><i class="bi bi-graph-up-arrow me-2"></i> Sales Dashboard</h1>
     <div>
-        <button type="button" class="btn btn-info text-white shadow-sm me-2" data-bs-toggle="modal" data-bs-target="#addQuotationModal">
-            <i class="bi bi-file-earmark-text me-1"></i> + Add Quotation
+        <button type="button" class="btn btn-info text-white shadow me-2" data-bs-toggle="modal" data-bs-target="#addQuotationModal">
+            <i class="bi bi-file-earmark-text me-1"></i> + Buat Quotation
         </button>
 
-        <button type="button" class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
-            <i class="bi bi-plus-circle me-1"></i> + Add Customer
+        <button type="button" class="btn btn-primary shadow" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+            <i class="bi bi-cart-plus me-1"></i> + Buat Sales Order
         </button>
     </div>
 </div>
 
 <div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content card-glossy shadow-lg">
             <form action="{% url 'sales_order_add' %}" method="POST">
                 {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addCustomerModalLabel">Tambah Data Customer & Order Baru</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header card-header-professional text-white">
+                    <h5 class="modal-title fs-5" id="addCustomerModalLabel"><i class="bi bi-person-plus me-2"></i> Tambah Data Customer & Order Baru</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     {% if add_order_form.errors %}
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger" role="alert">
                         <strong>Gagal menyimpan Order!</strong>
                         {{ add_order_form.non_field_errors }}
                         {% for field in add_order_form %}
                         {% if field.errors %}
-                        <p class="mb-0">{{ field.label }}: {{ field.errors|join:", " }}</p>
+                        <p class="mb-0 small">{{ field.label }}: {{ field.errors|join:", " }}</p>
                         {% endif %}
                         {% endfor %}
                     </div>
                     {% endif %}
 
-                    <h6 class="mb-3">Data Customer</h6>
+                    <h6 class="mb-3 text-secondary"><i class="bi bi-person-badge me-1"></i> Data Customer</h6>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_order_form.customer_name.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_order_form.customer_name.label }}</label>
                         {{ add_order_form.customer_name }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_order_form.customer_address.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_order_form.customer_address.label }}</label>
                         {{ add_order_form.customer_address }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_order_form.customer_phone.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_order_form.customer_phone.label }}</label>
                         {{ add_order_form.customer_phone }}
                     </div>
 
-                    <hr>
+                    <hr class="my-4">
 
-                    <h6 class="mb-3">Detail Order</h6>
+                    <h6 class="mb-3 text-secondary"><i class="bi bi-bag me-1"></i> Detail Order</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_order_form.sku.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_order_form.sku.label }}</label>
                             {{ add_order_form.sku }}
                             <div class="form-text">Hanya SKU berstatus 'Ready Store' yang tersedia.</div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_order_form.price.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_order_form.price.label }}</label>
                             {{ add_order_form.price }}
                             <div class="form-text">Harga Jual Final.</div>
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_order_form.shipping_type.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_order_form.shipping_type.label }}</label>
                         {{ add_order_form.shipping_type }}
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary">Simpan & Buat Order</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Simpan & Buat Order</button>
                 </div>
             </form>
         </div>
@@ -85,167 +85,167 @@
 
 <div class="modal fade" id="addQuotationModal" tabindex="-1" aria-labelledby="addQuotationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content card-glossy shadow-lg">
             <form action="{% url 'quotation_add' %}" method="POST">
                 {% csrf_token %}
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title" id="addQuotationModalLabel">Buat Quotation Baru</h5>
+                <div class="modal-header card-header-professional text-white">
+                    <h5 class="modal-title fs-5" id="addQuotationModalLabel"><i class="bi bi-file-earmark-plus me-2"></i> Buat Quotation Baru</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     {% if add_quotation_form.errors %}
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger" role="alert">
                         <strong>Gagal menyimpan Quotation!</strong>
                         {{ add_quotation_form.non_field_errors }}
                         {% for field in add_quotation_form %}
                         {% if field.errors %}
-                        <p class="mb-0">{{ field.label }}: {{ field.errors|join:", " }}</p>
+                        <p class="mb-0 small">{{ field.label }}: {{ field.errors|join:", " }}</p>
                         {% endif %}
                         {% endfor %}
                     </div>
                     {% endif %}
 
+                    <h6 class="mb-3 text-secondary"><i class="bi bi-journal-text me-1"></i> Detail Dokumen</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.quotation_number.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.quotation_number.label }}</label>
                             {{ add_quotation_form.quotation_number }}
                             <div class="form-text">Biarkan kosong untuk auto-generate.</div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.valid_until.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.valid_until.label }}</label>
                             {{ add_quotation_form.valid_until }}
                             <div class="form-text">Tanggal berakhirnya penawaran.</div>
                         </div>
                     </div>
 
-                    <hr>
+                    <hr class="my-4">
 
-                    <h6 class="mb-3">Detail Item</h6>
+                    <h6 class="mb-3 text-secondary"><i class="bi bi-box me-1"></i> Detail Item</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.sku.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.sku.label }}</label>
                             {{ add_quotation_form.sku }}
                             <div class="form-text">Bisa memilih SKU dengan status apapun.</div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.quantity.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.quantity.label }}</label>
                             {{ add_quotation_form.quantity }}
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.price.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.price.label }}</label>
                             {{ add_quotation_form.price }}
                             <div class="form-text">Harga per Unit.</div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">{{ add_quotation_form.extra_discount.label }}</label>
+                            <label class="form-label fw-bold small">{{ add_quotation_form.extra_discount.label }}</label>
                             {{ add_quotation_form.extra_discount }}
                             <div class="form-text">Diskon Tambahan (Rp). Default 0.</div>
                         </div>
                     </div>
 
-                    <hr>
-                    <h6 class="mb-3">Data Customer</h6>
+                    <hr class="my-4">
+                    <h6 class="mb-3 text-secondary"><i class="bi bi-person-badge me-1"></i> Data Customer</h6>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_quotation_form.customer_name.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_quotation_form.customer_name.label }}</label>
                         {{ add_quotation_form.customer_name }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_quotation_form.customer_address.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_quotation_form.customer_address.label }}</label>
                         {{ add_quotation_form.customer_address }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">{{ add_quotation_form.customer_phone.label }}</label>
+                        <label class="form-label fw-bold small">{{ add_quotation_form.customer_phone.label }}</label>
                         {{ add_quotation_form.customer_phone }}
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-info text-white">Simpan & Print Quotation</button>
+                    <button type="submit" class="btn btn-info text-white"><i class="bi bi-file-earmark-check me-1"></i> Simpan & Print Quotation</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-<div class="row">
+
+<div class="row g-4">
     <div class="col-lg-8">
         <ul class="nav nav-tabs" id="salesTab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="order-tab" data-bs-toggle="tab" data-bs-target="#order-tab-pane" type="button" role="tab" aria-controls="order-tab-pane" aria-selected="true">
-                    Daftar Customer (Order) 🛒
+                <button class="nav-link active fw-bold" id="order-tab" data-bs-toggle="tab" data-bs-target="#order-tab-pane" type="button" role="tab" aria-controls="order-tab-pane" aria-selected="true">
+                    <i class="bi bi-cart me-1"></i> Daftar Customer (Sales Order)
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="quotation-tab" data-bs-toggle="tab" data-bs-target="#quotation-tab-pane" type="button" role="tab" aria-controls="quotation-tab-pane" aria-selected="false">
-                    Quotation 📄
+                <button class="nav-link fw-bold" id="quotation-tab" data-bs-toggle="tab" data-bs-target="#quotation-tab-pane" type="button" role="tab" aria-controls="quotation-tab-pane" aria-selected="false">
+                    <i class="bi bi-file-text me-1"></i> Quotation
                 </button>
             </li>
         </ul>
 
-        <div class="tab-content border border-top-0 p-3 bg-white" id="salesTabContent">
+        <div class="tab-content card card-glossy shadow-lg border-top-0 p-3" id="salesTabContent">
 
             <div class="tab-pane fade show active" id="order-tab-pane" role="tabpanel" aria-labelledby="order-tab" tabindex="0">
                 {% for order in my_orders %}
-                <div class="card shadow-sm mb-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0 fw-bold text-primary">{{ order.customer_name }}</h6>
-                        <div>
+                <div class="card card-glossy shadow-sm mb-3 border border-primary-subtle">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white p-3">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-person me-1"></i> {{ order.customer_name }}</h6>
+                        <div class="text-end">
                             {% if order.status == 'Sold' or order.status == 'Shipped' or order.status == 'Completed' %}
-                            <span class="badge bg-success">{{ order.get_status_display }}</span>
+                            <span class="badge bg-success py-2 px-3">{{ order.get_status_display }}</span>
                             {% elif order.status == 'Booked' %}
-                            <span class="badge bg-info text-dark">{{ order.get_status_display }}</span>
+                            <span class="badge bg-info text-dark py-2 px-3">{{ order.get_status_display }}</span>
                             {% else %}
-                            <span class="badge bg-warning text-dark">{{ order.get_status_display }}</span>
+                            <span class="badge bg-warning text-dark py-2 px-3">{{ order.get_status_display }}</span>
                             {% endif %}
-
-                            <span class="badge bg-dark">{{ order.sku.get_status_display }}</span>
+                            <span class="badge bg-dark py-2 px-3 ms-2">{{ order.sku.get_status_display }}</span>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li><strong>Telepon:</strong> {{ order.customer_phone }}</li>
-                                    <li><strong>Alamat:</strong> {{ order.customer_address }}</li>
-                                    <li><strong>Pengiriman:</strong> {{ order.shipping_type|default:"-" }}</li>
+                                <ul class="list-unstyled small">
+                                    <li><i class="bi bi-telephone me-2"></i> <strong>Telepon:</strong> {{ order.customer_phone }}</li>
+                                    <li><i class="bi bi-geo-alt me-2"></i> <strong>Alamat:</strong> {{ order.customer_address }}</li>
+                                    <li><i class="bi bi-truck me-2"></i> <strong>Pengiriman:</strong> {{ order.shipping_type|default:"-" }}</li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
-                                <ul class="list-unstyled">
-                                    <li><strong>SKU ID:</strong> {{ order.sku.sku_id }}</li>
-                                    <li><strong>Harga:</strong> Rp {{ order.price|intcomma }}</li>
-                                    <li><strong>Total Bayar:</strong> Rp {{ order.get_total_paid|intcomma }}</li>
+                                <ul class="list-unstyled small text-end">
+                                    <li><i class="bi bi-tag me-2"></i> <strong>SKU ID:</strong> {{ order.sku.sku_id }}</li>
+                                    <li><i class="bi bi-currency-dollar me-2"></i> <strong>Harga:</strong> <span class="text-success">Rp {{ order.price|intcomma }}</span></li>
+                                    <li><i class="bi bi-cash me-2"></i> <strong>Total Bayar:</strong> <span class="text-success">Rp {{ order.get_total_paid|intcomma }}</span></li>
                                     <li class="{% if order.get_remaining_balance > 0 %}text-danger fw-bold{% else %}text-success fw-bold{% endif %}">
-                                        <strong>Sisa Bayar:</strong> Rp {{ order.get_remaining_balance|intcomma }}
+                                        <i class="bi bi-wallet me-2"></i> Sisa Bayar: Rp {{ order.get_remaining_balance|intcomma }}
                                     </li>
                                 </ul>
                             </div>
                         </div>
 
-                        <hr class="my-2">
+                        <hr class="my-3">
 
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">Order Dibuat: {{ order.created_at|date:"d M Y, H:i" }}</small>
-                            <div>
-                                <button type="button" class="btn btn-sm btn-success me-2" onclick="printInvoiceA4({{ order.id }})">
-                                    <i class="bi bi-receipt"></i> Print Invoice
+                            <small class="text-muted"><i class="bi bi-clock me-1"></i> Dibuat: {{ order.created_at|date:"d M Y, H:i" }}</small>
+                            <div class="btn-group" role="group" aria-label="Order Actions">
+                                <button type="button" class="btn btn-sm btn-success" onclick="printInvoiceA4({{ order.id }})">
+                                    <i class="bi bi-receipt"></i> Invoice
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-dark me-2" onclick="printOrderPdf({{ order.id }})">
-                                    <i class="bi bi-printer"></i> Print Data Customer
+                                <button type="button" class="btn btn-sm btn-outline-dark" onclick="printOrderPdf({{ order.id }})">
+                                    <i class="bi bi-printer"></i> Label
                                 </button>
-
-                                <a href="{% url 'sales_order_detail' order.id %}" class="btn btn-sm btn-outline-primary">
-                                    Lihat Detail & Tambah Pembayaran <i class="bi bi-arrow-right-short"></i>
+                                <a href="{% url 'sales_order_detail' order.id %}" class="btn btn-sm btn-primary">
+                                    Detail <i class="bi bi-arrow-right-short"></i>
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
                 {% empty %}
-                <div class="card">
-                    <div class="card-body text-center text-muted">
-                        Anda belum memiliki data customer/order.
+                <div class="card card-glossy shadow-sm">
+                    <div class="card-body text-center text-muted p-4">
+                        <i class="bi bi-info-circle me-1"></i> Anda belum memiliki data customer/order.
                     </div>
                 </div>
                 {% endfor %}
@@ -253,37 +253,37 @@
 
             <div class="tab-pane fade" id="quotation-tab-pane" role="tabpanel" aria-labelledby="quotation-tab" tabindex="0">
                 {% for quotation in my_quotations %}
-                <div class="card shadow-sm mb-3 border-info">
-                    <div class="card-header d-flex justify-content-between align-items-center bg-info text-white">
-                        <h6 class="mb-0 fw-bold">{{ quotation.customer_name }} (Q#{{ quotation.quotation_number|default:quotation.id }})</h6>
-                        <span class="badge bg-light text-dark">{{ quotation.get_status_display }}</span>
+                <div class="card card-glossy shadow-sm mb-3 border-info-subtle">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-info text-white p-3">
+                        <h6 class="mb-0 fw-bold"><i class="bi bi-person me-1"></i> {{ quotation.customer_name }} (Q#{{ quotation.quotation_number|default:quotation.id }})</h6>
+                        <span class="badge bg-light text-dark py-2 px-3">{{ quotation.get_status_display }}</span>
                     </div>
                     <div class="card-body">
-                        <ul class="list-unstyled mb-2">
-                            <li><strong>Berlaku Sampai:</strong> {{ quotation.valid_until|date:"d M Y"|default:"-" }}</li>
-                            <li><strong>SKU ID:</strong> {{ quotation.sku.sku_id }}</li>
-                            <li><strong>Jumlah:</strong> {{ quotation.quantity }} Unit</li>
-                            <li><strong>Harga/Unit:</strong> Rp {{ quotation.price|intcomma }}</li>
-                            <li><strong>Total Quote:</strong> Rp {{ quotation.get_total_quote|intcomma }} </li>
+                        <ul class="list-unstyled small mb-3">
+                            <li><i class="bi bi-calendar-x me-2"></i> <strong>Berlaku Sampai:</strong> <span class="text-danger">{{ quotation.valid_until|date:"d M Y"|default:"-" }}</span></li>
+                            <li><i class="bi bi-tag me-2"></i> <strong>SKU ID:</strong> {{ quotation.sku.sku_id }}</li>
+                            <li><i class="bi bi-box me-2"></i> <strong>Jumlah:</strong> {{ quotation.quantity }} Unit</li>
+                            <li><i class="bi bi-currency-dollar me-2"></i> <strong>Harga/Unit:</strong> Rp {{ quotation.price|intcomma }}</li>
+                            <li><i class="bi bi-calculator me-2"></i> <strong>Total Quote:</strong> <span class="text-primary fw-bold">Rp {{ quotation.get_total_quote|intcomma }}</span> </li>
                         </ul>
-                        <hr class="my-2">
+                        <hr class="my-3">
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">Dibuat: {{ quotation.created_at|date:"d M Y, H:i" }}</small>
-                            <div>
-                                <button type="button" class="btn btn-sm btn-outline-info me-2" onclick="printQuotationA4({{ quotation.id }})">
-                                    <i class="bi bi-printer"></i> Print Quotation
+                            <small class="text-muted"><i class="bi bi-clock me-1"></i> Dibuat: {{ quotation.created_at|date:"d M Y, H:i" }}</small>
+                            <div class="btn-group" role="group" aria-label="Quotation Actions">
+                                <button type="button" class="btn btn-sm btn-outline-info" onclick="printQuotationA4({{ quotation.id }})">
+                                    <i class="bi bi-printer"></i> Print
                                 </button>
-                                <a href="{% url 'quotation_detail' quotation.id %}" class="btn btn-sm btn-outline-primary">
-                                    Lihat Detail Quotation <i class="bi bi-arrow-right-short"></i>
+                                <a href="{% url 'quotation_detail' quotation.id %}" class="btn btn-sm btn-info text-white">
+                                    Detail <i class="bi bi-arrow-right-short"></i>
                                 </a>
                             </div>
                         </div>
                     </div>
                 </div>
                 {% empty %}
-                <div class="card">
-                    <div class="card-body text-center text-muted">
-                        Anda belum memiliki data quotation.
+                <div class="card card-glossy shadow-sm">
+                    <div class="card-body text-center text-muted p-4">
+                        <i class="bi bi-info-circle me-1"></i> Anda belum memiliki data quotation.
                     </div>
                 </div>
                 {% endfor %}
@@ -293,192 +293,113 @@
     </div>
 
     <div class="col-lg-4">
-        <div class="card shadow-sm mt-4">
-            <div class="card-header bg-success text-white">
-                <h3 class="h6 mb-0">List SKU Siap Jual</h3>
-            </div>
-
-            <ul class="nav nav-tabs nav-fill" id="readySkuTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="gudang-tab" data-bs-toggle="tab" data-bs-target="#gudang-tab-pane" type="button" role="tab" aria-controls="gudang-tab-pane" aria-selected="true">
-                        Ready
-                        <span class="badge bg-dark rounded-pill">
-                            {{ ready_skus_list.count|default:0 }}
-                        </span>
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="toko-tab" data-bs-toggle="tab" data-bs-target="#toko-tab-pane" type="button" role="tab" aria-controls="toko-tab-pane" aria-selected="false">
-                        Ready Store
-                        <span class="badge bg-dark rounded-pill">
-                            {{ shop_skus_list.count|default:0 }}
-                        </span>
-                    </button>
-                </li>
-            </ul>
-
-            <div class="p-2 bg-light border-bottom">
-                <input type="text" id="readySkuSearchInput" class="form-control form-control-sm" placeholder="Cari SKU Ready/Store..." autocomplete="off">
-            </div>
-
-            <div class="tab-content" id="readySkuTabContent">
-
-                <div class="tab-pane fade show active" id="gudang-tab-pane" role="tabpanel" aria-labelledby="gudang-tab" tabindex="0">
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        <ul class="list-group list-group-flush">
-                            {% for sku in ready_skus_list %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 ready-sku-item">
-                                <a href="#"
-                                   class="text-decoration-none fw-bold sku-id-text"
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#skuHistoryModal"
-                                   data-sku-id="{{ sku.id }}"
-                                   style="font-size: 0.9em;">
-                                    {{ sku.sku_id }} <i class="bi bi-search ms-1" style="font-size: 0.8rem;"></i>
-                                </a>
-                                <span class="text-muted small" style="font-size: 0.8em;">{{ sku.name|truncatechars:15 }}</span>
-                            </li>
-                            {% empty %}
-                            <li class="list-group-item text-center text-muted p-3">
-                                Tidak ada SKU Ready.
-                            </li>
-                            {% endfor %}
-                            <li class="list-group-item text-center text-muted p-3 no-gudang-match" style="display: none;">
-                                SKU tidak ditemukan.
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="tab-pane fade" id="toko-tab-pane" role="tabpanel" aria-labelledby="toko-tab" tabindex="0">
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        <ul class="list-group list-group-flush">
-                            {% for sku in shop_skus_list %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center py-2 ready-sku-item">
-                                <a href="#"
-                                   class="text-decoration-none fw-bold sku-id-text"
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#skuHistoryModal"
-                                   data-sku-id="{{ sku.id }}"
-                                   style="font-size: 0.9em;">
-                                    {{ sku.sku_id }} <i class="bi bi-search ms-1" style="font-size: 0.8rem;"></i>
-                                </a>
-                                <span class="text-muted small" style="font-size: 0.8em;">{{ sku.name|truncatechars:15 }}</span>
-                            </li>
-                            {% empty %}
-                            <li class="list-group-item text-center text-muted p-3">
-                                Tidak ada SKU Ready di Store.
-                            </li>
-                            {% endfor %}
-                            <li class="list-group-item text-center text-muted p-3 no-toko-match" style="display: none;">
-                                SKU tidak ditemukan.
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-body p-0">
+                {% include 'app/_includes/sidebar_sku_status.html' %}
             </div>
         </div>
 
-        <script>
-
-            // Logika Pencarian (Sudah berfungsi dengan baik, tidak ada perubahan mendasar)
-            document.addEventListener('DOMContentLoaded', function () {
-                const readySearchInput = document.getElementById('readySkuSearchInput');
-
-                if (readySearchInput) {
-                    readySearchInput.addEventListener('keyup', function (e) {
-                        const term = e.target.value.toLowerCase();
-
-                        // --- Filter Tab Gudang ---
-                        const gudangRows = document.querySelectorAll('#gudang-tab-pane .ready-sku-item');
-                        let hasGudangResult = false;
-                        gudangRows.forEach(row => {
-                            const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
-                            if (skuText.includes(term)) {
-                                row.style.display = '';
-                                hasGudangResult = true;
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        });
-                        const noGudangMsg = document.querySelector('#gudang-tab-pane .no-gudang-match');
-                        if (noGudangMsg) {
-                            noGudangMsg.style.display = hasGudangResult ? 'none' : '';
-                        }
-
-                        // --- Filter Tab Toko ---
-                        const tokoRows = document.querySelectorAll('#toko-tab-pane .ready-sku-item');
-                        let hasTokoResult = false;
-                        tokoRows.forEach(row => {
-                            const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
-                            if (skuText.includes(term)) {
-                                row.style.display = '';
-                                hasTokoResult = true;
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        });
-                        const noTokoMsg = document.querySelector('#toko-tab-pane .no-toko-match');
-                        if (noTokoMsg) {
-                            noTokoMsg.style.display = hasTokoResult ? 'none' : '';
-                        }
-                    });
-                }
-                const urlParams = new URLSearchParams(window.location.search);
-                const path = window.location.pathname;
-                if (urlParams.get('print') === 'true' && path.includes('/sales/order/')) { 
-                    const pathSegments = path.split('/').filter(Boolean);
-                    const orderIdIndex = pathSegments.indexOf('order') + 1;
-                    const orderId = pathSegments[orderIdIndex];
-
-                    if (orderId) {
-                        printInvoiceA4(orderId);
-                        const newUrl = path.split('?')[0]; // Menghapus query string
-                        window.history.replaceState(null, '', newUrl);
-                    }
-                }
-                if (urlParams.get('print') === 'true' && path.includes('/sales/quotation/')) {
-                    const pathSegments = path.split('/').filter(Boolean);
-                    const quotationIdIndex = pathSegments.indexOf('quotation') + 1;
-                    const quotationId = pathSegments[quotationIdIndex];
-
-                    if (quotationId) {
-                        printQuotationA4(quotationId);
-                        // Hapus parameter query string setelah print
-                        const newUrl = path.split('?')[0];
-                        window.history.replaceState(null, '', newUrl);
-                    }
-                }
-            });
-        </script>
-
-        {% if add_quotation_form.errors %}
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                var quotationModal = new bootstrap.Modal(document.getElementById('addQuotationModal'));
-                quotationModal.show();
-            });
-        </script>
-        {% endif %}
-
-        <script>
-            function printInvoiceA4(orderId) {
-                const url = `/sales/order/${orderId}/print_invoice/`;
-                window.open(url, '_blank');
-            }
-            function printOrderPdf(orderId) {
-                const url = `/sales/order/${orderId}/print_label/`;
-                window.open(url, '_blank');
-            }
-            function printQuotationA4(quotationId) {
-                const url = `/sales/quotation/${quotationId}/print_a4/`;
-                window.open(url, '_blank');
-            }
-        </script>
-
-        {% include 'app/_includes/sidebar_sku_status.html' %}
+        <div class="card card-glossy shadow-lg">
+            <div class="card-body p-0">
+                {% include 'app/_includes/sidebar_ready_sku_list.html' %}
+            </div>
+        </div>
     </div>
+
 </div>
 
+<script>
+    // Logika Pencarian (Sudah berfungsi dengan baik, tidak ada perubahan mendasar)
+    document.addEventListener('DOMContentLoaded', function () {
+        const readySearchInput = document.getElementById('readySkuSearchInput');
+
+        if (readySearchInput) {
+            readySearchInput.addEventListener('keyup', function (e) {
+                const term = e.target.value.toLowerCase();
+
+                // --- Filter Tab Gudang ---
+                const gudangRows = document.querySelectorAll('#gudang-tab-pane .ready-sku-item');
+                let hasGudangResult = false;
+                gudangRows.forEach(row => {
+                    const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
+                    if (skuText.includes(term)) {
+                        row.style.display = '';
+                        hasGudangResult = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                const noGudangMsg = document.querySelector('#gudang-tab-pane .no-gudang-match');
+                if (noGudangMsg) {
+                    noGudangMsg.style.display = hasGudangResult ? 'none' : '';
+                }
+
+                // --- Filter Tab Toko ---
+                const tokoRows = document.querySelectorAll('#toko-tab-pane .ready-sku-item');
+                let hasTokoResult = false;
+                tokoRows.forEach(row => {
+                    const skuText = row.querySelector('.sku-id-text').textContent.toLowerCase();
+                    if (skuText.includes(term)) {
+                        row.style.display = '';
+                        hasTokoResult = true;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                const noTokoMsg = document.querySelector('#toko-tab-pane .no-toko-match');
+                if (noTokoMsg) {
+                    noTokoMsg.style.display = hasTokoResult ? 'none' : '';
+                }
+            });
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const path = window.location.pathname;
+        if (urlParams.get('print') === 'true' && path.includes('/sales/order/')) {
+            const pathSegments = path.split('/').filter(Boolean);
+            const orderIdIndex = pathSegments.indexOf('order') + 1;
+            const orderId = pathSegments[orderIdIndex];
+
+            if (orderId) {
+                printInvoiceA4(orderId);
+                const newUrl = path.split('?')[0]; // Menghapus query string
+                window.history.replaceState(null, '', newUrl);
+            }
+        }
+        if (urlParams.get('print') === 'true' && path.includes('/sales/quotation/')) {
+            const pathSegments = path.split('/').filter(Boolean);
+            const quotationIdIndex = pathSegments.indexOf('quotation') + 1;
+            const quotationId = pathSegments[quotationIdIndex];
+
+            if (quotationId) {
+                printQuotationA4(quotationId);
+                const newUrl = path.split('?')[0];
+                window.history.replaceState(null, '', newUrl);
+            }
+        }
+    });
+</script>
+
+{% if add_quotation_form.errors %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var quotationModal = new bootstrap.Modal(document.getElementById('addQuotationModal'));
+        quotationModal.show();
+    });
+</script>
+{% endif %}
+
+<script>
+    function printInvoiceA4(orderId) {
+        const url = `/sales/order/${orderId}/print_invoice/`;
+        window.open(url, '_blank');
+    }
+    function printOrderPdf(orderId) {
+        const url = `/sales/order/${orderId}/print_label/`;
+        window.open(url, '_blank');
+    }
+    function printQuotationA4(quotationId) {
+        const url = `/sales/quotation/${quotationId}/print_a4/`;
+        window.open(url, '_blank');
+    }
+</script>
 {% endblock %}

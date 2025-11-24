@@ -8,20 +8,27 @@
     <div class="col-md-8 col-lg-6 mx-auto">
 
         <a href="{% url 'inventory_dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Inventory
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Inventory
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h1 class="h4 mb-0">{{ form_title }}</h1>
+        <div class="card card-glossy shadow-lg">
+
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-box-seam me-2"></i> {{ form_title }}</h1>
             </div>
-            <div class="card-body">
+
+            <div class="card-body p-4 p-md-5">
+
                 <form method="POST">
                     {% csrf_token %}
+
+                    <h2 class="h5 mb-4 text-primary"><i class="bi bi-list-ul me-1"></i> Detail Data Part</h2>
+
                     {{ form|crispy }}
-                    <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            Simpan Spare Part
+
+                    <div class="d-grid mt-5">
+                        <button type="submit" class="btn btn-primary btn-lg shadow">
+                            <i class="bi bi-save me-2"></i> Simpan Spare Part
                         </button>
                     </div>
                 </form>

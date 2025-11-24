@@ -4,55 +4,67 @@
 
 {% block content %}
 
-<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    &larr; Kembali ke Dashboard
-</a>
+<!-- Struktur Layout Baru: Menggunakan Row/Col untuk konsistensi -->
+<div class="row">
+    <div class="col-lg-10 mx-auto">
 
-<h1 class="h3 mb-4">Receiving Process (Daftar PO Masuk)</h1>
+        <!-- Tombol Kembali diposisikan di luar card -->
+        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
+        </a>
 
-<div class="card shadow-sm">
-    <div class="card-header bg-dark text-white">
-        <h2 class="h5 mb-0">Daftar PO (Telah Disetujui)</h2>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Nomor PO</th>
-                        <th>Jml SKU Diharapkan</th>
-                        <th>Status</th>
-                        <th class="text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for po in purchase_orders %}
-                    <tr>
-                        <td>{{ po.po_number }}</td>
-                        <td>{{ po.expected_sku_count }}</td>
-                        <td>
-                            <span class="badge rounded-pill
-                                  {% if po.status == 'Finished' %}bg-success
-                                  {% elif po.status == 'Delivered' %}bg-primary
-                                  {% else %}bg-secondary{% endif %}">
-                                {{ po.get_status_display }}
-                            </span>
-                        </td>
-                        <td class="text-center">
-                            <a href="{% url 'receiving_detail' po.id %}" class="btn btn-primary btn-sm">
-                                Proses Penerimaan
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-5">
-                            Belum ada Purchase Order yang disetujui untuk diproses.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <h1 class="h3 mb-4 fw-bold text-primary"><i class="bi bi-box-arrow-in-down me-2"></i> Receiving Process (Daftar PO Masuk)</h1>
+
+        <!-- Card Utama: Menerapkan card-glossy shadow-lg -->
+        <div class="card card-glossy shadow-lg">
+
+            <!-- Menggunakan class profesional untuk header card -->
+            <div class="card-header card-header-professional text-white">
+                <h2 class="h5 mb-0"><i class="bi bi-list-task me-2"></i> Daftar PO (Telah Disetujui)</h2>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <!-- Hapus table-striped, gunakan table-hover -->
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>Nomor PO</th>
+                                <th>Jml SKU Diharapkan</th>
+                                <th>Status</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for po in purchase_orders %}
+                            <tr>
+                                <td class="fw-bold">{{ po.po_number }}</td>
+                                <td><span class="badge bg-primary py-2 px-3">{{ po.expected_sku_count }}</span></td>
+                                <td>
+                                    <span class="badge rounded-pill py-2 px-3
+                                            {% if po.status == 'Finished' %}bg-success
+                                            {% elif po.status == 'Delivered' %}bg-info text-dark
+                                            {% else %}bg-secondary{% endif %}">
+                                        {{ po.get_status_display }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'receiving_detail' po.id %}" class="btn btn-success btn-sm shadow-sm">
+                                        <i class="bi bi-truck me-1"></i> Proses Penerimaan
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-5">
+                                    <i class="bi bi-info-circle me-1"></i> Belum ada Purchase Order yang disetujui untuk diproses.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

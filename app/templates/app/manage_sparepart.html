@@ -9,57 +9,67 @@
     <div class="col-lg-6 col-md-8 mx-auto">
 
         <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Dashboard WM
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard WM
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-body p-4 p-md-5">
-                <h1 class="h3 text-center mb-4">Proses Request Spare Part</h1>
+        <div class="card card-glossy shadow-lg">
 
-                <ul class="list-group list-group-flush mb-4">
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-gear-fill me-2"></i> Proses Request Spare Part</h1>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+
+                <h2 class="h5 mb-4 text-primary text-center">Detail Permintaan</h2>
+
+                <ul class="list-group list-group-flush mb-4 border rounded">
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
                             <strong>Part Diminta:</strong>
-                            <div class="fs-5">{{ part_request.part_name }}</div>
+                            <div class="fs-5 fw-bold text-dark">{{ part_request.part_name }}</div>
                         </div>
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#searchPartModal">
+                        <button type="button" class="btn btn-outline-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#searchPartModal">
                             <i class="bi bi-search me-1"></i> Cari Stok Manual
                         </button>
                     </li>
 
                     <li class="list-group-item d-flex justify-content-between">
                         <strong>Jumlah Diminta:</strong>
-                        <span>{{ part_request.quantity_needed }}</span>
+                        <span class="fw-bold text-primary">{{ part_request.quantity_needed }} unit</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <strong>Untuk SKU:</strong>
-                        <span>{{ sku.sku_id }} ({{ sku.name }})</span>
+                        <span class="text-muted">{{ sku.sku_id }} ({{ sku.name }})</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <strong>Teknisi:</strong>
-                        <span>{{ part_request.qc_form.technician.username }}</span>
+                        <span class="text-muted">{{ part_request.qc_form.technician.username }}</span>
                     </li>
 
-                    <li class="list-group-item d-flex justify-content-between {% if current_stock < part_request.quantity_needed %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
-                        <strong>Stok "{{ part_request.part_name }}" Saat Ini:</strong>
-                        <span class="fw-bold">{{ current_stock }}</span>
+                    <li class="list-group-item d-flex justify-content-between
+                        {% if current_stock < part_request.quantity_needed %}bg-danger text-white{% else %}bg-success text-white{% endif %}">
+                        <strong>Stok Part Saat Ini:</strong>
+                        <span class="fw-bold fs-5" id="currentStockDisplay">{{ current_stock }}</span>
                     </li>
                 </ul>
 
                 <form method="POST">
                     {% csrf_token %}
 
-                    <h3 class="h5 text-center mt-4">Pilih Aksi:</h3>
+                    <h3 class="h5 text-center mt-4 text-secondary">Pilih Aksi:</h3>
 
-                    <button type="submit" name="issue_part" class="btn btn-success btn-lg w-100 mt-3"
-                            {% if current_stock < part_request.quantity_needed %}disabled title="Stok tidak mencukupi"{% endif %}> <i class="bi bi-box-arrow-up me-2"></i> Issue Part (Stok: {{ current_stock }})
+                    <input type="hidden" name="issued_part_id" id="issuedPartId" value="">
+
+                    <button type="submit" name="issue_part" class="btn btn-success btn-lg w-100 mt-3 shadow-sm"
+                            {% if current_stock < part_request.quantity_needed %}disabled title="Stok tidak mencukupi"{% endif %}>
+                        <i class="bi bi-box-arrow-up me-2"></i> Issue Part (Stok: {{ current_stock }})
                     </button>
 
-                    <p class="text-center text-muted small my-2">Akan mengurangi stok di inventory secara otomatis.</p>
+                    <p class="text-center text-muted small my-2">Akan mengurangi stok di inventory secara otomatis dan meneruskan ke Teknisi.</p>
 
-                    <hr>
+                    <hr class="my-4">
 
-                    <button type="submit" name="approve_buy" class="btn btn-warning btn-lg w-100 text-dark">
+                    <button type="submit" name="approve_buy" class="btn btn-warning btn-lg w-100 text-dark shadow-sm">
                         <i class="bi bi-cart-plus me-2"></i>
                         Part Tidak Ready &rarr; Setujui Pembelian
                     </button>
@@ -73,15 +83,15 @@
 
 <div class="modal fade" id="searchPartModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+        <div class="modal-content card-glossy shadow-lg">
+            <div class="modal-header card-header-professional text-white">
                 <h5 class="modal-title"><i class="bi bi-search me-2"></i>Cari di Inventory</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="input-group mb-3">
+                <div class="input-group mb-3 shadow-sm">
                     <input type="text" id="inventorySearchInput" class="form-control" placeholder="Ketik nama sparepart..." autocomplete="off">
-                    <button class="btn btn-outline-secondary" type="button"><i class="bi bi-search"></i></button>
+                    <button class="btn btn-primary" type="button"><i class="bi bi-search"></i></button>
                 </div>
 
                 <div class="list-group" id="inventorySearchResults" style="max-height: 300px; overflow-y: auto;">
@@ -96,7 +106,54 @@
     document.addEventListener('DOMContentLoaded', function () {
         const searchInput = document.getElementById('inventorySearchInput');
         const resultsContainer = document.getElementById('inventorySearchResults');
+        const issueButton = document.querySelector('button[name="issue_part"]');
+        const issuedPartIdInput = document.getElementById('issuedPartId');
         let debounceTimer;
+
+        // Mendefinisikan attachSelectPartListener agar bisa dipanggil kembali
+        function attachSelectPartListener() {
+            resultsContainer.querySelectorAll('.list-group-item-action').forEach(item => {
+                item.addEventListener('click', function () {
+                    const partName = this.getAttribute('data-part-name');
+                    const partId = this.getAttribute('data-part-id');
+                    const stock = parseInt(this.getAttribute('data-part-stock'));
+                    const needed = parseInt("{{ part_request.quantity_needed }}");
+
+                    // 1. Update Hidden Input dan Status Permintaan
+                    issuedPartIdInput.value = partId;
+
+                    // 2. Update Tampilan Stok Saat Ini (Untuk feedback di card utama)
+                    const stockDisplayEl = document.getElementById('currentStockDisplay');
+                    const stockListItem = stockDisplayEl ? stockDisplayEl.closest('li') : null;
+
+                    if (stockDisplayEl) {
+                        stockDisplayEl.textContent = stock;
+                    }
+                    if (stockListItem) {
+                        // Update warna background list item stok
+                        stockListItem.classList.remove('bg-danger', 'text-white', 'bg-success');
+                        if (stock < needed) {
+                            stockListItem.classList.add('bg-danger', 'text-white');
+                        } else {
+                            stockListItem.classList.add('bg-success', 'text-white');
+                        }
+                    }
+
+                    // 3. Update Button Issue
+                    issueButton.disabled = stock < needed;
+                    issueButton.title = stock < needed ? "Stok tidak mencukupi" : "";
+                    issueButton.innerHTML = `<i class="bi bi-box-arrow-up me-2"></i> Issue Part (Stok: ${stock})`;
+
+                    // Opsional: Tutup modal dan berikan notifikasi
+                    const modalEl = document.getElementById('searchPartModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    alert(`Spare Part: ${partName} dipilih. Stok saat ini: ${stock}.`);
+                });
+            });
+        }
 
         if (searchInput) {
             searchInput.addEventListener('keyup', function (e) {
@@ -121,8 +178,10 @@
                                 data.forEach(item => {
                                     const badgeClass = item.stock > 0 ? 'bg-success' : 'bg-danger';
                                     const html = `
-                                    <div class="list-group-item list-group-item-action">
-                                        <div class="d-flex w-100 justify-content-between">
+                                    <div class="list-group-item list-group-item-action"
+                                        data-part-name="${item.name}"
+                                        data-part-id="${item.id}"
+                                        data-part-stock="${item.stock}"> <div class="d-flex w-100 justify-content-between">
                                             <h6 class="mb-1 fw-bold text-primary">${item.name}</h6>
                                             <span class="badge ${badgeClass} rounded-pill">Stok: ${item.stock}</span>
                                         </div>
@@ -132,6 +191,7 @@
                                     `;
                                     resultsContainer.insertAdjacentHTML('beforeend', html);
                                 });
+                                attachSelectPartListener(); // Panggil fungsi di sini setelah konten dimuat
                             }
                         })
                         .catch(err => {
@@ -140,6 +200,11 @@
                         });
                 }, 500);
             });
+        }
+        // Pastikan current stock awal juga memiliki ID untuk diupdate
+        const initialStockSpan = document.querySelector('.list-group-item:last-child span');
+        if (initialStockSpan) {
+             initialStockSpan.setAttribute('id', 'currentStockDisplay');
         }
     });
 </script>

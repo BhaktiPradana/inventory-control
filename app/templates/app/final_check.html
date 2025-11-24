@@ -8,125 +8,135 @@
     <div class="col-lg-8 mx-auto">
 
         <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Dashboard
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-body p-4 p-md-5">
-                <h1 class="h3 text-center mb-4">Verifikasi Final (Instalasi Part)</h1>
+        <div class="card card-glossy shadow-lg mb-4">
 
-                <ul class="list-group list-group-flush mb-4">
-                    <li class="list-group-item d-flex justify-content-between"><strong>SKU ID:</strong> <span class="text-primary fw-bold">{{ sku.sku_id }}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><strong>Nama Mesin:</strong> <span>{{ sku.name }}</span></li>
-                    <li class="list-group-item d-flex justify-content-between"><strong>Teknisi:</strong> <span>{{ qc_form.technician.username }}</span></li>
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-patch-check-fill me-2"></i> Verifikasi Final (Instalasi Part)</h1>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+
+                <h2 class="h5 mb-4 text-primary text-center">Detail SKU & Instalasi</h2>
+
+                <ul class="list-group list-group-flush mb-4 border rounded">
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>SKU ID:</strong> <span class="text-primary fw-bold">{{ sku.sku_id }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Nama Mesin:</strong> <span>{{ sku.name }}</span></li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Teknisi:</strong> <span>{{ qc_form.technician.username }}</span></li>
                 </ul>
 
-                <div class="alert alert-light border" role="alert">
-                    <h4 class="alert-heading h5">Catatan Instalasi dari Teknisi</h4>
-                    <p class="mb-0" style="white-space: pre-wrap;">{{ qc_form.installation_notes|default:"(Tidak ada catatan)" }}</p>
-                </div>
-
-                <hr>
-
-                <h3 class="h4 mt-4 mb-3 text-center">Bukti Pemasangan</h3>
-                <div class="row g-4 text-center">
-                    <div class="col-md-6">
-                        <h4 class="h5 text-center border-bottom pb-2">SEBELUM Instalasi</h4>
-                        <div class="row g-2">
-                            {% for photo in qc_form.photos.all %}
-                            {% if photo.photo_type == 'before' %}
-                            <div class="col-12 mb-3">
-                                <div class="card h-100">
-                                    <a href="{{ photo.image.url }}" target="_blank">
-                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="Before" style="max-height: 200px; object-fit: contain;">
-                                    </a>
-                                    <div class="card-body p-2 bg-light">
-                                        <p class="card-text small text-muted mb-0">
-                                            <strong>Remarks:</strong> {{ photo.remarks|default:"-" }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                            {% if not qc_form.photos.all|length %}
-                            <p class="text-center text-muted">(Tidak ada foto)</p>
-                            {% endif %}
-                        </div>
+                <div class="card card-glossy shadow-sm mb-4 border-info border-2">
+                    <div class="card-header bg-info text-dark fw-bold">
+                        <i class="bi bi-journal-text me-1"></i> Catatan Instalasi dari Teknisi
                     </div>
-
-                    <div class="col-md-6">
-                        <h4 class="h5 text-center border-bottom pb-2">SESUDAH Instalasi</h4>
-                        <div class="row g-2">
-                            {% for photo in qc_form.photos.all %}
-                            {% if photo.photo_type == 'after' %}
-                            <div class="col-12 mb-3">
-                                <div class="card h-100">
-                                    <a href="{{ photo.image.url }}" target="_blank">
-                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="After" style="max-height: 200px; object-fit: contain;">
-                                    </a>
-                                    <div class="card-body p-2 bg-light">
-                                        <p class="card-text small text-muted mb-0">
-                                            <strong>Remarks:</strong> {{ photo.remarks|default:"-" }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                            {% if not qc_form.photos.all|length %}
-                            <p class="text-center text-muted">(Tidak ada foto)</p>
-                            {% endif %}
-                        </div>
+                    <div class="card-body p-3">
+                        <p class="mb-0 small" style="white-space: pre-wrap;">{{ qc_form.installation_notes|default:"(Tidak ada catatan)" }}</p>
                     </div>
                 </div>
 
                 <hr class="my-4">
 
+                <h3 class="h4 mb-4 text-center text-secondary"><i class="bi bi-camera me-2"></i> Bukti Pemasangan</h3>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h4 class="h5 text-center border-bottom pb-2 text-dark"><i class="bi bi-arrow-left-circle me-1"></i> SEBELUM Instalasi</h4>
+                        <div class="row g-2">
+                            {% for photo in qc_form.photos.all %}
+                            {% if photo.photo_type == 'before' %}
+                            <div class="col-12 mb-3">
+                                <div class="card card-glossy h-100 shadow-sm border border-light">
+                                    <a href="{{ photo.image.url }}" target="_blank">
+                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="Before" style="max-height: 200px; object-fit: cover;">
+                                    </a>
+                                    <div class="card-body p-2 bg-light">
+                                        <p class="card-text small text-muted mb-0">
+                                            Remarks: {{ photo.remarks|default:"-" }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            {% if not qc_form.photos.all|length %}
+                            <div class="col-12"><p class="text-center text-muted small mt-2">(Tidak ada foto)</p></div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h4 class="h5 text-center border-bottom pb-2 text-dark"><i class="bi bi-arrow-right-circle me-1"></i> SESUDAH Instalasi</h4>
+                        <div class="row g-2">
+                            {% for photo in qc_form.photos.all %}
+                            {% if photo.photo_type == 'after' %}
+                            <div class="col-12 mb-3">
+                                <div class="card card-glossy h-100 shadow-sm border border-light">
+                                    <a href="{{ photo.image.url }}" target="_blank">
+                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="After" style="max-height: 200px; object-fit: cover;">
+                                    </a>
+                                    <div class="card-body p-2 bg-light">
+                                        <p class="card-text small text-muted mb-0">
+                                            Remarks: {{ photo.remarks|default:"-" }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            {% if not qc_form.photos.all|length %}
+                            <div class="col-12"><p class="text-center text-muted small mt-2">(Tidak ada foto)</p></div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-5">
+
                 <form method="POST">
                     {% csrf_token %}
 
                     {% if returned_part %}
-                    <div class="card mb-4 border-warning">
+                    <div class="card card-glossy shadow-sm mb-4 border-warning border-2">
                         <div class="card-header bg-warning text-dark fw-bold">
-                            <i class="bi bi-arrow-return-left"></i> Approval Sparepart Lama
+                            <i class="bi bi-arrow-return-left me-1"></i> Approval Sparepart Lama
                         </div>
                         <div class="card-body">
-                            <p>Teknisi melaporkan pengembalian part lama:</p>
-                            <h5 class="text-dark">{{ returned_part.part_name_reported }}</h5>
-
-                            <hr>
+                            <p class="mb-2">Teknisi melaporkan pengembalian part lama:</p>
+                            <h5 class="text-dark fw-bold mb-3">{{ returned_part.part_name_reported }}</h5>
 
                             <div class="mb-3">
                                 <label for="lead_assigned_sku" class="form-label fw-bold text-danger">
-                                    SKU UNTUK PART LAMA (WAJIB DIISI)
+                                    <i class="bi bi-exclamation-octagon-fill me-1"></i> SKU UNTUK PART LAMA (WAJIB DIISI)
                                 </label>
                                 <input type="text"
-                                       class="form-control"
+                                       class="form-control form-control-lg border-danger"
                                        name="lead_assigned_sku"
                                        id="lead_assigned_sku"
                                        placeholder="Masukkan SKU unik untuk part lama ini"
                                        value="{{ returned_part.lead_assigned_sku|default:'' }}"
                                        required>
                                 <div class="form-text">
-                                    Part ini akan otomatis ditambahkan ke inventory Warehouse Manager dengan SKU ini setelah Anda 'Approve'.
+                                    Part ini akan otomatis ditambahkan ke inventory WM dengan SKU ini setelah Anda 'Approve'.
                                 </div>
                             </div>
                         </div>
                     </div>
                     {% endif %}
-                    <div class="mb-3">
-                        <label for="comments" class="form-label fs-5">Komentar Anda (Wajib diisi jika 'Reject'):</label>
+
+                    <div class="mb-4">
+                        <label for="comments" class="form-label fs-5 fw-bold text-secondary">Komentar Anda (Wajib diisi jika 'Reject'):</label>
                         <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
                     </div>
 
-                    <div class="d-flex justify-content-end gap-2 mt-4">
-                        <button type="submit" name="reject" class="btn btn-danger btn-lg">
-                            Reject (Kembalikan ke Teknisi)
+                    <div class="d-flex justify-content-end gap-3 mt-4">
+                        <button type="submit" name="reject" class="btn btn-danger btn-lg shadow-sm">
+                            <i class="bi bi-x-circle me-2"></i> Reject (Kembalikan ke Teknisi)
                         </button>
 
-                        <button type="submit" name="approve" class="btn btn-success btn-lg">
-                            Approve (Set SKU ke 'Ready')
+                        <button type="submit" name="approve" class="btn btn-success btn-lg shadow-sm">
+                            <i class="bi bi-check-circle me-2"></i> Approve (Set SKU ke 'Ready')
                         </button>
                     </div>
                 </form>

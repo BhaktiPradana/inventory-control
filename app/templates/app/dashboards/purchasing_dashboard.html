@@ -8,21 +8,28 @@
 <div class="row g-4">
 
     <div class="col-lg-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header" style="background-color: #a569bd; color: white;">
-                <h1 class="h4 mb-0">Dashboard Purchasing</h1>
+
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header card-header-professional" style="background-color: #a569bd; color: white;">
+                <h1 class="h4 mb-0"><i class="bi bi-cart-check me-2"></i> DASHBOARD PURCHASING</h1>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2 mb-4">
-                    <a href="{% url 'po_create' %}" class="btn btn-lg text-white" style="background-color: #a569bd;">
+                    <a href="{% url 'po_create' %}" class="btn btn-lg text-white shadow-sm" style="background-color: #a569bd; border-color: #a569bd;">
                         <i class="bi bi-plus-circle me-2"></i> Buat Purchase Order (PO) Baru
                     </a>
                 </div>
-                <hr>
-                <h2 class="h5 mt-4">Daftar Spare Part (Disetujui untuk Dibeli)</h2>
+            </div>
+        </div>
+
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header bg-primary text-white border-bottom border-primary">
+                <h2 class="h5 mb-0"><i class="bi bi-list-check me-2"></i> Daftar Spare Part (Disetujui untuk Dibeli)</h2>
+            </div>
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-dark">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark sticky-top">
                             <tr>
                                 <th>Part Diminta</th>
                                 <th>Jumlah</th>
@@ -34,23 +41,23 @@
                         <tbody>
                             {% for part in parts_to_buy %}
                             <tr>
-                                <td>{{ part.part_name }}</td>
-                                <td>{{ part.quantity_needed }}</td>
+                                <td class="fw-bold">{{ part.part_name }}</td>
+                                <td><span class="badge bg-primary py-2 px-3">{{ part.quantity_needed }}</span></td>
                                 <td>{{ part.qc_form.sku.sku_id }}</td>
                                 <td>{{ part.warehouse_manager.username }}</td>
                                 <td class="text-center">
-                                    <form method="POST" action="{% url 'mark_part_received' part.id %}" class="m-0">
+                                    <form method="POST" action="{% url 'mark_part_received' part.id %}" class="m-0 d-inline">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            Tandai Sudah Diterima
+                                        <button type="submit" class="btn btn-success btn-sm shadow-sm">
+                                            <i class="bi bi-check2 me-1"></i> Tandai Diterima
                                         </button>
                                     </form>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
-                                    Tidak ada request pembelian spare part.
+                                <td colspan="5" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada request pembelian spare part.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -60,14 +67,14 @@
             </div>
         </div>
 
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-warning text-dark">
-                <h2 class="h5 mb-0"><i class="bi bi-arrow-down-up me-2"></i> Permintaan Approval Stock Opname ({{ pending_adjustments|length }})</h2>
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header bg-warning text-dark border-bottom border-warning">
+                <h2 class="h5 mb-0"><i class="bi bi-arrow-down-up me-2"></i> Permintaan Approval Stock Opname (<span class="fw-bold">{{ pending_adjustments|length }}</span>)</h2>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-warning">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-warning sticky-top">
                             <tr>
                                 <th>Part</th>
                                 <th>Stok Sistem</th>
@@ -80,29 +87,29 @@
                         <tbody>
                             {% for adj in pending_adjustments %}
                             <tr>
-                                <td>{{ adj.spare_part.part_name }}</td>
+                                <td class="fw-bold">{{ adj.spare_part.part_name }}</td>
                                 <td>{{ adj.quantity_in_system }}</td>
                                 <td><strong class="text-primary">{{ adj.quantity_actual }}</strong></td>
                                 <td>
                                     {% if adj.difference > 0 %}
-                                    <span class="badge bg-success">+{{ adj.difference }}</span>
+                                    <span class="badge bg-success py-1 px-2"><i class="bi bi-plus"></i> {{ adj.difference }}</span>
                                     {% elif adj.difference < 0 %}
-                                    <span class="badge bg-danger">{{ adj.difference }}</span>
+                                    <span class="badge bg-danger py-1 px-2">{{ adj.difference }}</span>
                                     {% else %}
-                                    <span class="badge bg-secondary">0</span>
+                                    <span class="badge bg-secondary py-1 px-2">0</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ adj.reason }} <small class="text-muted d-block">oleh: {{ adj.requested_by.username }}</small></td>
+                                <td>{{ adj.reason|truncatewords:5 }} <small class="text-muted d-block">oleh: {{ adj.requested_by.username }}</small></td>
                                 <td class="text-center">
-                                    <a href="{% url 'approve_stock_adjustment' adj.id %}" class="btn btn-success btn-sm">
-                                        Proses Approval
+                                    <a href="{% url 'approve_stock_adjustment' adj.id %}" class="btn btn-warning btn-sm text-dark shadow-sm">
+                                        <i class="bi bi-check-all me-1"></i> Proses
                                     </a>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center text-muted">
-                                    Tidak ada permintaan approval stock opname.
+                                <td colspan="6" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada permintaan approval stock opname.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -111,14 +118,15 @@
                 </div>
             </div>
         </div>
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-danger text-white">
-                <h2 class="h5 mb-0">PO Ditolak oleh Warehouse Manager</h2>
+
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header bg-danger text-white border-bottom border-danger">
+                <h2 class="h5 mb-0"><i class="bi bi-x-circle me-2"></i> PO Ditolak oleh Warehouse Manager</h2>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-danger">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-danger sticky-top">
                             <tr>
                                 <th>Nomor PO</th>
                                 <th>Jml SKU</th>
@@ -130,18 +138,18 @@
                         <tbody>
                             {% for po in rejected_pos %}
                             <tr>
-                                <td>{{ po.po_number }}</td>
+                                <td class="fw-bold text-danger">{{ po.po_number }}</td>
                                 <td>{{ po.expected_sku_count }}</td>
                                 <td>
-                                    Rp {{ po.buy_price|default:0|intcomma }}
+                                    <strong class="text-success">Rp {{ po.buy_price|default:0|intcomma }}</strong>
                                 </td>
-                                <td>{{ po.rejection_reason }}</td>
+                                <td><small>{{ po.rejection_reason|truncatewords:5 }}</small></td>
                                 <td>{{ po.approved_by_wm.username }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
-                                    Tidak ada PO yang ditolak.
+                                <td colspan="5" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada PO yang ditolak.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -151,14 +159,14 @@
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-warning text-dark">
-                <h2 class="h5 mb-0">Notifikasi Packing List (PO Bermasalah)</h2>
+        <div class="card card-glossy shadow-lg">
+            <div class="card-header bg-warning text-dark border-bottom border-warning">
+                <h2 class="h5 mb-0"><i class="bi bi-exclamation-triangle me-2"></i> Notifikasi Packing List (PO Bermasalah)</h2>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
-                        <thead class="table-warning">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-warning sticky-top">
                             <tr>
                                 <th>Nomor PO</th>
                                 <th>Alasan dari WM</th>
@@ -170,16 +178,16 @@
                         <tbody>
                             {% for notif in po_notifications %}
                             <tr>
-                                <td>{{ notif.po_number.po_number }}</td>
-                                <td>{{ notif.message }}</td>
+                                <td class="fw-bold text-warning">{{ notif.po_number.po_number }}</td>
+                                <td><small>{{ notif.message|truncatewords:5 }}</small></td>
                                 <td>{{ notif.reported_by.username }}</td>
                                 <td>{{ notif.created_at|date:"d M Y" }}</td>
-                                <td><span class="badge bg-danger">Pending</span></td>
+                                <td><span class="badge bg-danger py-1 px-2">Pending</span></td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center text-muted">
-                                    Tidak ada notifikasi PO bermasalah.
+                                <td colspan="5" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada notifikasi PO bermasalah.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -188,11 +196,21 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <div class="col-lg-4">
-        {% include 'app/_includes/sidebar_sku_status.html' %}
-        {% include 'app/_includes/sidebar_ready_sku_list.html' %}
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-body p-0">
+                {% include 'app/_includes/sidebar_sku_status.html' %}
+            </div>
+        </div>
+
+        <div class="card card-glossy shadow-lg">
+            <div class="card-body p-0">
+                {% include 'app/_includes/sidebar_ready_sku_list.html' %}
+            </div>
+        </div>
     </div>
 
 </div>

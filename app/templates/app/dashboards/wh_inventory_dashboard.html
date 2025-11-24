@@ -5,185 +5,197 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">
-        &larr; Kembali ke Dashboard WM
-    </a>
+<div class="card card-glossy shadow-lg">
 
-    <a href="{% url 'inventory_add' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i> Tambah Spare Part Baru
-    </a>
-</div>
+    <div class="card-body">
 
-<div class="row mb-4">
-    <div class="col-md-8 col-lg-6 mx-auto">
-        <div class="input-group shadow-sm">
-            <span class="input-group-text bg-white border-end-0">
-                <i class="bi bi-search text-muted"></i>
-            </span>
-            <input type="text" id="inventorySearchInput" class="form-control border-start-0" placeholder="Cari nama part, SKU, atau lokasi..." autocomplete="off">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard WM
+            </a>
+
+            <a href="{% url 'inventory_add' %}" class="btn btn-primary shadow">
+                <i class="bi bi-plus-circle me-2"></i> Tambah Spare Part Baru
+            </a>
         </div>
-    </div>
-</div>
 
-<h2 class="h4 mb-3"><i class="bi bi-box-seam"></i> Inventory (Register Manual & Pembelian)</h2>
-<hr>
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="inventoryGridManual">
-    {% for item in inventory_list_manual %}
-    <div class="col inventory-item">
-        <div class="card h-100 shadow-sm hover-shadow
-                    {% if item.status == 'Pending_Adjustment' %}border-warning border-3{% else %}border-0{% endif %}">
-            <div class="card-body">
-
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="card-title text-primary fw-bold mb-0 text-truncate searchable-name" title="{{ item.part_name }}">
-                        {{ item.part_name }}
-                    </h5>
-                    <span class="badge rounded-pill
-                          {% if item.quantity_in_stock > 10 %} bg-success
-                        {% elif item.quantity_in_stock > 0 %} bg-warning text-dark
-                        {% else %} bg-danger {% endif %}" > Stok: {{ item.quantity_in_stock }}
+        <div class="row mb-4">
+            <div class="col-md-8 col-lg-6 mx-auto">
+                <div class="input-group shadow-sm">
+                    <span class="input-group-text bg-white border-end-0 border-0">
+                        <i class="bi bi-search text-muted"></i>
                     </span>
-                </div>
-
-                <p class="card-text text-muted small mb-1">
-                    <i class="bi bi-qr-code me-2"></i> SKU: <strong class="searchable-sku">{{ item.part_sku|default:"-" }}</strong>
-                </p>
-                <p class="card-text text-muted small mb-1">
-                    <i class="bi bi-geo-alt me-2"></i> Loc: <span class="searchable-loc">{{ item.location|default:"-" }}</span>
-                </p>
-                <p class="card-text text-muted small mb-2 text-truncate">
-                    <i class="bi bi-shop me-2"></i> Sup: {{ item.primary_supplier|default:"-" }}
-                </p>
-                <hr class="my-2">
-
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <a href="{% url 'inventory_edit' item.id %}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-pencil"></i> Edit
-                    </a>
-
-                    <a href="{% url 'inventory_adjust' item.id %}"
-                       class="btn btn-sm btn-warning text-dark
-                                {% if item.status == 'Pending_Adjustment' %}disabled{% endif %}">
-                        <i class="bi bi-arrow-down-up"></i> Adjust Stock
-                    </a>
-
-                    <button type="button"
-                            class="btn btn-sm btn-info text-white btn-history-part"
-                            data-part-name="{{ item.part_name }}">
-                        <i class="bi bi-clock-history me-1"></i> History
-                    </button>
+                    <input type="text" id="inventorySearchInput" class="form-control border-start-0 border-0" placeholder="Cari nama part, SKU, atau lokasi..." autocomplete="off">
                 </div>
             </div>
-            <div class="card-footer bg-light border-top-0 py-2">
-                <small class="text-muted d-flex align-items-center">
-                    Status:
-                    <span class="badge ms-2
-                                {% if item.status == 'Ready' %} bg-success
-                                {% elif item.status == 'On_Order' %} bg-primary
-                                {% elif item.status == 'In_QC' %} bg-secondary
-                                {% elif item.status == 'Pending_Adjustment' %} bg-warning text-dark
-                                {% else %} bg-danger {% endif %}">
-                        {{ item.get_status_display }}
-                    </span>
-                </small>
-            </div>
         </div>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="alert alert-secondary text-center p-5">
-            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-            Belum ada data di inventory (Manual/Pembelian).
-        </div>
-    </div>
-    {% endfor %}
-</div>
 
+        <h2 class="h4 mb-3 text-primary"><i class="bi bi-box-seam me-2"></i> Inventory (Register Manual & Pembelian)</h2>
+        <hr class="mt-0 mb-4">
 
-<h2 class="h4 mt-5 mb-3"><i class="bi bi-arrow-return-left"></i> Inventory (Part Lama Kembalian)</h2>
-<hr>
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="inventoryGridReturned">
-    {% for item in inventory_list_returned %}
-    <div class="col inventory-item">
-        <div class="card h-100 shadow-sm hover-shadow border-info border-2
-                    {% if item.status == 'Pending_Adjustment' %}border-warning border-3{% endif %}">
-            <div class="card-body">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="inventoryGridManual">
+            {% for item in inventory_list_manual %}
+            <div class="col inventory-item">
+                <div class="card card-glossy h-100 hover-shadow
+                             {% if item.status == 'Pending_Adjustment' %}border-warning border-3{% else %}border-0{% endif %}">
+                    <div class="card-body">
 
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <h5 class="card-title text-primary fw-bold mb-0 text-truncate searchable-name" title="{{ item.part_name }}">
-                        {{ item.part_name }}
-                    </h5>
-                    <span class="badge rounded-pill
-                          {% if item.quantity_in_stock > 10 %} bg-success
-                        {% elif item.quantity_in_stock > 0 %} bg-warning text-dark
-                        {% else %} bg-danger {% endif %}" > Stok: {{ item.quantity_in_stock }}
-                    </span>
-                </div>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title text-primary fw-bold mb-0 text-truncate searchable-name" title="{{ item.part_name }}">
+                                {{ item.part_name }}
+                            </h5>
+                            <span class="badge rounded-pill py-2 px-3 fw-bold
+                                  {% if item.quantity_in_stock > 10 %} bg-success
+                                {% elif item.quantity_in_stock > 0 %} bg-warning text-dark
+                                {% else %} bg-danger {% endif %}" > <i class="bi bi-tag-fill me-1"></i> Stok: {{ item.quantity_in_stock }}
+                            </span>
+                        </div>
 
-                <p class="card-text text-muted small mb-1">
-                    <i class="bi bi-qr-code me-2"></i> SKU: <strong class="searchable-sku">{{ item.part_sku|default:"-" }}</strong>
-                </p>
-                <p class="card-text text-muted small mb-1">
-                    <i class="bi bi-geo-alt me-2"></i> Loc: <span class="searchable-loc">{{ item.location|default:"-" }}</span>
-                </p>
-                <p class="card-text text-muted small mb-2 text-truncate">
-                    <i class="bi bi-shop me-2"></i> Sup: {{ item.primary_supplier|default:"-" }}
-                </p>
-                <hr class="my-2">
+                        <ul class="list-unstyled small text-muted">
+                            <li class="mb-1">
+                                <i class="bi bi-qr-code me-2"></i> SKU: <strong class="text-dark searchable-sku">{{ item.part_sku|default:"-" }}</strong>
+                            </li>
+                            <li class="mb-1">
+                                <i class="bi bi-geo-alt me-2"></i> Loc: <span class="text-dark searchable-loc">{{ item.location|default:"-" }}</span>
+                            </li>
+                            <li class="mb-1 text-truncate">
+                                <i class="bi bi-shop me-2"></i> Sup: {{ item.primary_supplier|default:"-" }}
+                            </li>
+                        </ul>
 
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <a href="{% url 'inventory_edit' item.id %}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-pencil"></i> Edit
-                    </a>
+                        <hr class="my-3">
 
-                    <a href="{% url 'inventory_adjust' item.id %}"
-                       class="btn btn-sm btn-warning text-dark
-                                {% if item.status == 'Pending_Adjustment' %}disabled{% endif %}">
-                        <i class="bi bi-arrow-down-up"></i> Adjust Stock
-                    </a>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'inventory_edit' item.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
 
-                    <button type="button"
-                            class="btn btn-sm btn-info text-white btn-history-part"
-                            data-part-name="{{ item.part_name }}">
-                        <i class="bi bi-clock-history me-1"></i> History
-                    </button>
+                            <a href="{% url 'inventory_adjust' item.id %}"
+                               class="btn btn-sm btn-warning text-dark shadow-sm
+                                       {% if item.status == 'Pending_Adjustment' %}disabled{% endif %}">
+                                <i class="bi bi-arrow-down-up"></i> Adjust Stock
+                            </a>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-info text-white shadow-sm btn-history-part"
+                                    data-part-name="{{ item.part_name }}">
+                                <i class="bi bi-clock-history me-1"></i> History
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light border-top-0 py-2">
+                        <small class="text-muted d-flex align-items-center">
+                            Status:
+                            <span class="badge ms-2 py-1 px-2
+                                  {% if item.status == 'Ready' %} bg-success
+                                  {% elif item.status == 'On_Order' %} bg-primary
+                                  {% elif item.status == 'In_QC' %} bg-secondary
+                                  {% elif item.status == 'Pending_Adjustment' %} bg-warning text-dark
+                                  {% else %} bg-danger {% endif %}">
+                                {{ item.get_status_display }}
+                            </span>
+                        </small>
+                    </div>
                 </div>
             </div>
-            <div class="card-footer bg-light border-top-0 py-2">
-                <small class="text-muted d-flex align-items-center justify-content-between">
-                    <span>
-                        Status:
-                        <span class="badge ms-2
-                                    {% if item.status == 'Ready' %} bg-success
-                                    {% elif item.status == 'On_Order' %} bg-primary
-                                    {% elif item.status == 'In_QC' %} bg-secondary
-                                    {% elif item.status == 'Pending_Adjustment' %} bg-warning text-dark
-                                    {% else %} bg-danger {% endif %}">
-                            {{ item.get_status_display }}
-                        </span>
-                    </span>
-                    <span class="badge bg-info text-dark">Part Kembalian</span>
-                </small>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-secondary text-center p-5 card-glossy shadow-sm">
+                    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                    Belum ada data di inventory (Manual/Pembelian).
+                </div>
             </div>
+            {% endfor %}
         </div>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="alert alert-secondary text-center p-5">
-            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-            Belum ada data part lama yang dikembalikan.
+
+        <h2 class="h4 mt-5 mb-3 text-primary"><i class="bi bi-arrow-return-left me-2"></i> Inventory (Part Lama Kembalian)</h2>
+        <hr class="mt-0 mb-4">
+
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="inventoryGridReturned">
+            {% for item in inventory_list_returned %}
+            <div class="col inventory-item">
+                <div class="card card-glossy h-100 hover-shadow border-info border-2
+                             {% if item.status == 'Pending_Adjustment' %}border-warning border-3{% endif %}">
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title text-primary fw-bold mb-0 text-truncate searchable-name" title="{{ item.part_name }}">
+                                {{ item.part_name }}
+                            </h5>
+                            <span class="badge rounded-pill py-2 px-3 fw-bold
+                                  {% if item.quantity_in_stock > 10 %} bg-success
+                                {% elif item.quantity_in_stock > 0 %} bg-warning text-dark
+                                {% else %} bg-danger {% endif %}" > <i class="bi bi-tag-fill me-1"></i> Stok: {{ item.quantity_in_stock }}
+                            </span>
+                        </div>
+
+                        <ul class="list-unstyled small text-muted">
+                            <li class="mb-1">
+                                <i class="bi bi-qr-code me-2"></i> SKU: <strong class="text-dark searchable-sku">{{ item.part_sku|default:"-" }}</strong>
+                            </li>
+                            <li class="mb-1">
+                                <i class="bi bi-geo-alt me-2"></i> Loc: <span class="text-dark searchable-loc">{{ item.location|default:"-" }}</span>
+                            </li>
+                            <li class="mb-1 text-truncate">
+                                <i class="bi bi-shop me-2"></i> Sup: {{ item.primary_supplier|default:"-" }}
+                            </li>
+                        </ul>
+
+                        <hr class="my-3">
+
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <a href="{% url 'inventory_edit' item.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+
+                            <a href="{% url 'inventory_adjust' item.id %}"
+                               class="btn btn-sm btn-warning text-dark shadow-sm
+                                       {% if item.status == 'Pending_Adjustment' %}disabled{% endif %}">
+                                <i class="bi bi-arrow-down-up"></i> Adjust Stock
+                            </a>
+
+                            <button type="button"
+                                    class="btn btn-sm btn-info text-white shadow-sm btn-history-part"
+                                    data-part-name="{{ item.part_name }}">
+                                <i class="bi bi-clock-history me-1"></i> History
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light border-top-0 py-2">
+                        <small class="text-muted d-flex align-items-center justify-content-between">
+                            <span>
+                                Status:
+                                <span class="badge ms-2 py-1 px-2
+                                      {% if item.status == 'Ready' %} bg-success
+                                      {% elif item.status == 'On_Order' %} bg-primary
+                                      {% elif item.status == 'In_QC' %} bg-secondary
+                                      {% elif item.status == 'Pending_Adjustment' %} bg-warning text-dark
+                                      {% else %} bg-danger {% endif %}">
+                                    {{ item.get_status_display }}
+                                </span>
+                            </span>
+                            <span class="badge bg-info text-dark py-1 px-2">Part Kembalian</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-secondary text-center p-5 card-glossy shadow-sm">
+                    <i class="bi bi-inbox fs-1 d-block mb-3"></i>
+                    Belum ada data part lama yang dikembalikan.
+                </div>
+            </div>
+            {% endfor %}
         </div>
+
+        <div id="noSearchResults" class="text-center text-muted py-5 d-none">
+            <i class="bi bi-search fs-1 mb-3 d-block"></i>
+            <p>Tidak ada spare part yang cocok dengan pencarian Anda.</p>
+        </div>
+
     </div>
-    {% endfor %}
-</div>
-
-<div id="noSearchResults" class="text-center text-muted py-5 d-none">
-    <i class="bi bi-search fs-1 mb-3 d-block"></i>
-    <p>Tidak ada spare part yang cocok dengan pencarian Anda.</p>
-</div>
-
-<div class="modal fade" id="partHistoryModal" tabindex="-1" aria-hidden="true">
+</div> <div class="modal fade" id="partHistoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content" id="partHistoryModalContent">
             <div class="modal-body text-center p-5">
@@ -275,13 +287,15 @@
 </script>
 
 <style>
+    /* CSS kustom Anda sebelumnya, sedikit disesuaikan untuk konsistensi */
     .hover-shadow {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
 
         .hover-shadow:hover {
             transform: translateY(-5px);
-            box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
+            /* Bayangan yang lebih kuat saat hover */
+            box-shadow: 0 1rem 2rem rgba(0, 0, 0, .2) !important;
         }
 </style>
 

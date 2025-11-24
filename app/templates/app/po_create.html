@@ -8,21 +8,30 @@
     <div class="col-md-8 col-lg-6 mx-auto">
 
         <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            &larr; Kembali ke Dashboard Purchasing
+            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard Purchasing
         </a>
 
-        <div class="card shadow-sm">
-            <div class="card-header text-white" style="background-color: #a569bd;">
-                <h1 class="h4 mb-0">Buat Purchase Order (PO) Baru</h1>
+        <div class="card card-glossy shadow-lg">
+
+            <div class="card-header card-header-professional text-white" style="background-color: #a569bd;">
+                <h1 class="h4 mb-0"><i class="bi bi-file-earmark-plus me-2"></i> Buat Purchase Order (PO) Baru</h1>
             </div>
-            <div class="card-body">
-                <p class="text-muted">PO yang dibuat di sini akan dikirim ke Warehouse Manager untuk approval.</p>
+
+            <div class="card-body p-4 p-md-5">
+                <p class="text-muted mb-4 small">
+                    <i class="bi bi-info-circle me-1 text-primary"></i> PO yang dibuat di sini akan dikirim ke Warehouse Manager untuk approval.
+                </p>
+
                 <form method="POST">
                     {% csrf_token %}
+
+                    <h2 class="h5 mb-4 text-secondary"><i class="bi bi-list-ul me-1"></i> Detail Order Pembelian</h2>
+
                     {{ form|crispy }}
-                    <div class="d-grid mt-4">
-                        <button type="submit" class="btn text-white btn-lg" style="background-color: #a569bd;">
-                            Simpan dan Kirim ke WM
+
+                    <div class="d-grid mt-5">
+                        <button type="submit" class="btn btn-lg shadow" style="background-color: #a569bd; color: white;">
+                            <i class="bi bi-send-fill me-2"></i> Simpan dan Kirim ke WM
                         </button>
                     </div>
                 </form>
