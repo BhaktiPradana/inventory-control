@@ -141,9 +141,9 @@ class QuotationForm(forms.ModelForm):
 
     # Tidak perlu filter 'Ready Store' untuk Quotation
     sku = forms.ModelChoiceField(
-        queryset=SKU.objects.all(), # Tampilkan semua SKU
-        label='SKU Mesin ID',
-        widget=forms.Select(attrs={'class': 'form-select select2-sku', 'data-placeholder': 'Cari SKU...'})
+        queryset=SKU.objects.filter(status='Shop'), 
+        label='SKU Mesin ID (Hanya Ready Store)',
+        widget=forms.Select(attrs={'class': 'form-select select2-sku', 'data-placeholder': 'Cari SKU Ready Store...'})
     )
 
     class Meta:
