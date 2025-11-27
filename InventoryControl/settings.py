@@ -16,7 +16,7 @@ ALLOWED_HOSTS = [
     '31.97.48.133', 
     '127.0.0.1',
     'localhost',
-    # 'domain.com', 
+    'bringco.id', 
     # 'www.domain.com'
 ]
 
