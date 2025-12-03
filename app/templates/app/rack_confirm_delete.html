@@ -1,0 +1,30 @@
+{# app/templates/app/rack_confirm_delete.html #}
+<div class="modal fade" id="deleteRackModal-{{ rack.id }}" tabindex="-1" aria-labelledby="deleteRackModalLabel-{{ rack.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{% url 'rack_delete' rack.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteRackModalLabel-{{ rack.id }}"><i class="bi bi-trash me-2"></i> Konfirmasi Hapus Rak</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if rack.occupied_by_sku %}
+                    <div class="alert alert-danger">
+                        <strong>ERROR:</strong> Rak ini tidak dapat dihapus karena masih ditempati oleh SKU <strong>{{ rack.occupied_by_sku.sku_id }}</strong>. Harap kosongkan terlebih dahulu.
+                    </div>
+                    {% else %}
+                    <p>Apakah Anda yakin ingin menghapus slot rak: <strong>{{ rack.rack_location }}</strong>?</p>
+                    <p class="text-danger small">Tindakan ini tidak dapat dibatalkan.</p>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    {% if not rack.occupied_by_sku %}
+                    <button type="submit" class="btn btn-danger">Ya, Hapus Permanen</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

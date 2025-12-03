@@ -118,6 +118,14 @@
                             {% endfor %}
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">{{ rack_selection_form.available_racks.label }}</label>
+                        {{ rack_selection_form.available_racks }}
+                        <div class="form-text">Pilih lokasi rak untuk menyimpan SKU (Hijau = Tersedia).</div>
+                        {% if rack_selection_form.available_racks.errors %}
+                        <div class="text-danger small mt-1">{{ rack_selection_form.available_racks.errors }}</div>
+                        {% endif %}
+                    </div>
                     <div class="d-grid">
                         <button type="submit" name="add_sku" class="btn btn-success w-100 shadow-sm">Tambah & Tugaskan SKU</button>
                     </div>

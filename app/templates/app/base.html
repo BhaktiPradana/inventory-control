@@ -85,8 +85,8 @@
 
     <script>
         $(document).ready(function () {
-            $('.select2-sku').select2({
-                dropdownParent: $('#addCustomerModal, #addQuotationModal'),
+            $('.select2-sku, .select2-store, .select2-user, .select2-rack-available').select2({
+                dropdownParent: $('#addCustomerModal, #addQuotationModal, #rackSelectionModal, #poCreationForm'), // Tambahkan modal/form umum
                 width: '100%',
                 minimumResultsForSearch: 0
             });

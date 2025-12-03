@@ -18,6 +18,20 @@
     </div>
 </div>
 
+{# REVISI 1: Tampilkan Store Assignment #}
+{% if my_store %}
+<div class="alert alert-info shadow-sm mb-4" role="alert">
+    <i class="bi bi-shop me-2"></i>
+    Anda ditugaskan di Store: <strong>{{ my_store.name }}</strong>.
+</div>
+{% else %}
+<div class="alert alert-warning shadow-sm mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    Anda belum ditugaskan ke Store manapun. Mohon hubungi Master Role.
+</div>
+{% endif %}
+{# END REVISI 1 #}
+
 <div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content card-glossy shadow-lg">
@@ -172,7 +186,22 @@
 
 <div class="row g-4">
     <div class="col-lg-8">
+
+        {# PENGIRIMAN SEMENTARA DIHILANGKAN DARI SINI UNTUK DIPINDAHKAN KE TAB BARU #}
+
         <ul class="nav nav-tabs" id="salesTab" role="tablist">
+
+            {# TAB BARU: PENGIRIMAN SAYA (Movement) #}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold" id="movement-tab" data-bs-toggle="tab" data-bs-target="#movement-tab-pane" type="button" role="tab" aria-controls="movement-tab-pane" aria-selected="false">
+                    <i class="bi bi-truck-flatbed me-1"></i> Pengiriman Saya
+                    {% if movements_in_transit.count > 0 %}
+                    <span class="badge bg-danger ms-1">{{ movements_in_transit.count }}</span>
+                    {% endif %}
+                </button>
+            </li>
+            {# END TAB BARU #}
+
             <li class="nav-item" role="presentation">
                 <button class="nav-link active fw-bold" id="order-tab" data-bs-toggle="tab" data-bs-target="#order-tab-pane" type="button" role="tab" aria-controls="order-tab-pane" aria-selected="true">
                     <i class="bi bi-cart me-1"></i> Daftar Customer (Sales Order)
@@ -186,6 +215,42 @@
         </ul>
 
         <div class="tab-content card card-glossy shadow-lg border-top-0 p-3" id="salesTabContent">
+
+            {# CONTENT TAB BARU: PENGIRIMAN SAYA #}
+            <div class="tab-pane fade" id="movement-tab-pane" role="tabpanel" aria-labelledby="movement-tab" tabindex="0">
+                <h5 class="mb-3 text-primary"><i class="bi bi-geo-alt me-1"></i> Konfirmasi Penerimaan Barang dari Warehouse</h5>
+
+                {% if movements_in_transit %}
+                <div class="list-group">
+                    {% for move in movements_in_transit %}
+                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-warning-subtle mb-2 p-3">
+                        <div>
+                            <p class="mb-1">SKU ID: <strong class="text-dark">{{ move.sku_to_move.sku_id }}</strong> - {{ move.sku_to_move.name }}</p>
+                            <small class="text-muted"><i class="bi bi-clock me-1"></i> Dikirim: {{ move.created_at|date:"d M Y, H:i" }}</small>
+                            <br>
+                            <a href="{{ move.delivery_form.url }}" target="_blank" class="text-info small fw-bold">
+                                <i class="bi bi-file-earmark-text me-1"></i> Lihat Dokumen Pengiriman (DO)
+                            </a>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-success btn-sm shadow"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#confirmSalesReceiptModal"
+                                    data-movement-id="{{ move.id }}"
+                                    data-sku-id="{{ move.sku_to_move.sku_id }}">
+                                <i class="bi bi-check-circle me-1"></i> Penerimaan SKU
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-success text-center mt-3" role="alert">
+                    <i class="bi bi-check-circle me-1"></i> Tidak ada SKU yang sedang dalam pengiriman ke <strong>{{ my_store.name|default:"Store Anda" }}</strong> saat ini.
+                </div>
+                {% endif %}
+            </div>
+            {# END CONTENT TAB BARU #}
 
             <div class="tab-pane fade show active" id="order-tab-pane" role="tabpanel" aria-labelledby="order-tab" tabindex="0">
                 {% for order in my_orders %}
@@ -308,6 +373,38 @@
 
 </div>
 
+{# MODAL Konfirmasi Penerimaan SKU oleh Sales (REVISI 3) #}
+<div class="modal fade" id="confirmSalesReceiptModal" tabindex="-1" aria-labelledby="confirmSalesReceiptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content card-glossy shadow-lg">
+            <form action="#" method="POST" enctype="multipart/form-data" id="salesReceiptForm">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="confirmSalesReceiptModalLabel"><i class="bi bi-box-arrow-in-down me-2"></i> Konfirmasi Penerimaan SKU</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fs-6">Anda akan mengkonfirmasi penerimaan untuk SKU: <strong id="modalSalesSkuId" class="text-primary"></strong></p>
+                    <p class="text-muted small">Setelah diterima, status SKU akan berubah menjadi 'Ready Store'.</p>
+
+                    <input type="hidden" name="movement_id" id="modalSalesMovementId" value="">
+
+                    <div class="mb-3">
+                        <label for="receipt_form_file" class="form-label fw-bold text-secondary">Upload Bukti Penerimaan (Tanda Tangan/Foto)</label>
+                        <input class="form-control form-control-lg" type="file" name="receipt_form_file" id="receipt_form_file" required>
+                        <div class="form-text">Bukti wajib berupa PDF atau Gambar.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success shadow-sm"><i class="bi bi-check-lg me-1"></i> Konfirmasi Diterima</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
 <script>
     // Logika Pencarian (Sudah berfungsi dengan baik, tidak ada perubahan mendasar)
     document.addEventListener('DOMContentLoaded', function () {
@@ -376,6 +473,68 @@
                 window.history.replaceState(null, '', newUrl);
             }
         }
+
+        // Logika untuk Modal Konfirmasi Penerimaan Sales (REVISI 3 JAVASCRIPT)
+        var confirmSalesModal = document.getElementById('confirmSalesReceiptModal');
+        if (confirmSalesModal) {
+            confirmSalesModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var movementId = button.getAttribute('data-movement-id');
+                var skuId = button.getAttribute('data-sku-id');
+
+                var modalSkuIdElement = confirmSalesModal.querySelector('#modalSalesSkuId');
+                var modalMovementIdInput = confirmSalesModal.querySelector('#modalSalesMovementId');
+                var formAction = confirmSalesModal.querySelector('#salesReceiptForm');
+
+                if (modalSkuIdElement) {
+                    modalSkuIdElement.textContent = skuId;
+                }
+                if (modalMovementIdInput) {
+                    modalMovementIdInput.value = movementId;
+                }
+                // Update URL aksi form secara dinamis
+                if (formAction) {
+                    formAction.action = `/sales/receive-sku/${movementId}/`;
+                }
+            });
+
+            confirmSalesModal.addEventListener('hidden.bs.modal', function (event) {
+                // Reset form di sini
+                confirmSalesModal.querySelector('#salesReceiptForm').reset();
+            });
+        }
+
+        // --- LOGIKA SELECT2 UNTUK MODAL (TAMBAHAN PENTING) ---
+        function initializeSelect2Modals() {
+            // Targetkan class 'select2-sku' yang digunakan di SalesOrderForm dan QuotationForm
+            $('.select2-sku').each(function () {
+                var $this = $(this);
+                if (!$this.data('select2')) { // Cek jika belum terinisialisasi
+                    $this.select2({
+                        theme: "bootstrap-5",
+                        width: '100%',
+                        placeholder: $this.data('placeholder') || 'Cari SKU...',
+                        dropdownParent: $this.closest('.modal-content') // Penting untuk modal
+                    });
+                }
+            });
+
+            // Inisialisasi Select2 Store & User (jika ada)
+            $('.select2-store, .select2-user').each(function () {
+                var $this = $(this);
+                if (!$this.data('select2')) {
+                    $this.select2({
+                        theme: "bootstrap-5",
+                        width: '100%',
+                        dropdownParent: $this.closest('.modal-content')
+                    });
+                }
+            });
+        }
+
+        // Panggil inisialisasi saat modal ditampilkan
+        $('#addCustomerModal').on('shown.bs.modal', initializeSelect2Modals);
+        $('#addQuotationModal').on('shown.bs.modal', initializeSelect2Modals);
     });
 </script>
 

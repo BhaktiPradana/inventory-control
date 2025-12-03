@@ -1,4 +1,6 @@
 {% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
 
 {% block title %}Final Check - {{ sku.sku_id }}{% endblock %}
 
@@ -6,124 +8,20 @@
 
 <div class="row">
     <div class="col-lg-8 mx-auto">
-
-        <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-            <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard
-        </a>
-
         <div class="card card-glossy shadow-lg mb-4">
-
-            <div class="card-header card-header-professional text-white">
-                <h1 class="h4 mb-0"><i class="bi bi-patch-check-fill me-2"></i> Verifikasi Final (Instalasi Part)</h1>
-            </div>
-
             <div class="card-body p-4 p-md-5">
+                <h1 class="h4 mb-4 fw-bold text-primary"><i class="bi bi-search me-2"></i> Final Check Instalasi SKU: {{ sku.sku_id }}</h1>
 
-                <h2 class="h5 mb-4 text-primary text-center">Detail SKU & Instalasi</h2>
-
-                <ul class="list-group list-group-flush mb-4 border rounded">
-                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>SKU ID:</strong> <span class="text-primary fw-bold">{{ sku.sku_id }}</span></li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Nama Mesin:</strong> <span>{{ sku.name }}</span></li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center"><strong>Teknisi:</strong> <span>{{ qc_form.technician.username }}</span></li>
-                </ul>
-
-                <div class="card card-glossy shadow-sm mb-4 border-info border-2">
-                    <div class="card-header bg-info text-dark fw-bold">
-                        <i class="bi bi-journal-text me-1"></i> Catatan Instalasi dari Teknisi
-                    </div>
-                    <div class="card-body p-3">
-                        <p class="mb-0 small" style="white-space: pre-wrap;">{{ qc_form.installation_notes|default:"(Tidak ada catatan)" }}</p>
-                    </div>
-                </div>
-
-                <hr class="my-4">
-
-                <h3 class="h4 mb-4 text-center text-secondary"><i class="bi bi-camera me-2"></i> Bukti Pemasangan</h3>
-
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <h4 class="h5 text-center border-bottom pb-2 text-dark"><i class="bi bi-arrow-left-circle me-1"></i> SEBELUM Instalasi</h4>
-                        <div class="row g-2">
-                            {% for photo in qc_form.photos.all %}
-                            {% if photo.photo_type == 'before' %}
-                            <div class="col-12 mb-3">
-                                <div class="card card-glossy h-100 shadow-sm border border-light">
-                                    <a href="{{ photo.image.url }}" target="_blank">
-                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="Before" style="max-height: 200px; object-fit: cover;">
-                                    </a>
-                                    <div class="card-body p-2 bg-light">
-                                        <p class="card-text small text-muted mb-0">
-                                            Remarks: {{ photo.remarks|default:"-" }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                            {% if not qc_form.photos.all|length %}
-                            <div class="col-12"><p class="text-center text-muted small mt-2">(Tidak ada foto)</p></div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <h4 class="h5 text-center border-bottom pb-2 text-dark"><i class="bi bi-arrow-right-circle me-1"></i> SESUDAH Instalasi</h4>
-                        <div class="row g-2">
-                            {% for photo in qc_form.photos.all %}
-                            {% if photo.photo_type == 'after' %}
-                            <div class="col-12 mb-3">
-                                <div class="card card-glossy h-100 shadow-sm border border-light">
-                                    <a href="{{ photo.image.url }}" target="_blank">
-                                        <img src="{{ photo.image.url }}" class="card-img-top" alt="After" style="max-height: 200px; object-fit: cover;">
-                                    </a>
-                                    <div class="card-body p-2 bg-light">
-                                        <p class="card-text small text-muted mb-0">
-                                            Remarks: {{ photo.remarks|default:"-" }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                            {% if not qc_form.photos.all|length %}
-                            <div class="col-12"><p class="text-center text-muted small mt-2">(Tidak ada foto)</p></div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
+                {# Tampilkan detail QC Form (seperti catatan instalasi, foto, returned part) di sini #}
+                {% include 'app/_includes/final_check_details.html' %}
 
                 <hr class="my-5">
 
-                <form method="POST">
+                <form method="POST" id="final_check_form">
                     {% csrf_token %}
 
-                    {% if returned_part %}
-                    <div class="card card-glossy shadow-sm mb-4 border-warning border-2">
-                        <div class="card-header bg-warning text-dark fw-bold">
-                            <i class="bi bi-arrow-return-left me-1"></i> Approval Sparepart Lama
-                        </div>
-                        <div class="card-body">
-                            <p class="mb-2">Teknisi melaporkan pengembalian part lama:</p>
-                            <h5 class="text-dark fw-bold mb-3">{{ returned_part.part_name_reported }}</h5>
-
-                            <div class="mb-3">
-                                <label for="lead_assigned_sku" class="form-label fw-bold text-danger">
-                                    <i class="bi bi-exclamation-octagon-fill me-1"></i> SKU UNTUK PART LAMA (WAJIB DIISI)
-                                </label>
-                                <input type="text"
-                                       class="form-control form-control-lg border-danger"
-                                       name="lead_assigned_sku"
-                                       id="lead_assigned_sku"
-                                       placeholder="Masukkan SKU unik untuk part lama ini"
-                                       value="{{ returned_part.lead_assigned_sku|default:'' }}"
-                                       required>
-                                <div class="form-text">
-                                    Part ini akan otomatis ditambahkan ke inventory WM dengan SKU ini setelah Anda 'Approve'.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endif %}
+                    {# Hidden field untuk Rack ID yang akan diisi oleh modal #}
+                    <input type="hidden" name="selected_rack_id" id="selected_rack_id">
 
                     <div class="mb-4">
                         <label for="comments" class="form-label fs-5 fw-bold text-secondary">Komentar Anda (Wajib diisi jika 'Reject'):</label>
@@ -131,11 +29,15 @@
                     </div>
 
                     <div class="d-flex justify-content-end gap-3 mt-4">
+                        {# Tombol Reject - Tetap submit form utama dengan name="reject" #}
                         <button type="submit" name="reject" class="btn btn-danger btn-lg shadow-sm">
                             <i class="bi bi-x-circle me-2"></i> Reject (Kembalikan ke Teknisi)
                         </button>
 
-                        <button type="submit" name="approve" class="btn btn-success btn-lg shadow-sm">
+                        {# Tombol Trigger Modal untuk Approve #}
+                        <button type="button" class="btn btn-success btn-lg shadow-sm"
+                                data-bs-toggle="modal" data-bs-target="#rackSelectionModalFinal"
+                                {% if not is_pending_final_check %}disabled title="SKU ini sudah berstatus final." {% endif %}>
                             <i class="bi bi-check-circle me-2"></i> Approve (Set SKU ke 'Ready')
                         </button>
                     </div>
@@ -145,4 +47,124 @@
         </div>
     </div>
 </div>
+
+{# --- MODAL PEMILIHAN RAK (LEAD TECHNICIAN) --- #}
+<div class="modal fade" id="rackSelectionModalFinal" tabindex="-1" aria-labelledby="rackSelectionModalFinalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="rackSelectionModalFinalLabel"><i class="bi bi-boxes me-2"></i> Final: Pilih Lokasi Rak</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info text-center border-info border-3" id="rack_selection_alert">
+                    <h5 class="fw-bold mb-2"><i class="bi bi-info-circle me-1"></i> Perhatian: Penempatan Rak</h5>
+                    <p class="mb-0">Setelah disetujui, SKU **{{ sku.sku_id }}** akan berstatus 'Ready'. Pilih lokasi rak yang akan ditempati:</p>
+                </div>
+
+                {# Menggunakan form pemilihan rak dari views.py (RackSelectionForm) #}
+                <div class="card card-body mb-4 shadow-sm border-success">
+                    {# Asumsi 'rack_form' adalah instance dari RackSelectionForm yang dikirim dari views #}
+                    {{ rack_form.available_racks.label_tag }}
+                    {{ rack_form.available_racks }}
+                    <div class="form-text">Rak yang sudah ditempati tidak muncul (Merah).</div>
+                    {% for error in rack_form.available_racks.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                {# Field Part Lama (Jika ada) #}
+                {% if returned_part %}
+                <div class="alert alert-warning border border-warning">
+                    <h6 class="fw-bold text-dark">Sparepart Lama Dikembalikan:</h6>
+                    <p class="mb-2 small">**{{ returned_part.part_name_reported }}**</p>
+                    <label for="lead_assigned_sku" class="form-label small fw-bold">SKU Part Lama (Wajib diisi untuk Inventory):</label>
+                    <input type="text" name="lead_assigned_sku_modal" id="lead_assigned_sku_modal" class="form-control" required placeholder="Cth: PART-BTR-001">
+                </div>
+                {% endif %}
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                {# Tombol Approve FINAL yang akan memindahkan data dan SUBMIT form utama #}
+                <button type="button" class="btn btn-success" id="finalApproveButton">
+                    <i class="bi bi-check-circle me-2"></i> Setujui & Simpan Rak
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{# --- END MODAL --- #}
+{% endblock %}
+
+{% block extrascripts %}
+<script>
+    $(document).ready(function () {
+        // Inisialisasi Select2 untuk form pemilihan rak di dalam modal
+        $('#id_available_racks').select2({
+            theme: "bootstrap-5",
+            placeholder: "Cari dan Pilih Rak yang Tersedia (Hijau)...",
+            dropdownParent: $('#rackSelectionModalFinal')
+        });
+
+        // --- LOGIKA BARU UNTUK MODAL APPROVE FINAL CHECK ---
+        $('#finalApproveButton').on('click', function () {
+            var selectedRackId = $('#id_available_racks').val();
+            var leadAssignedSku = $('#lead_assigned_sku_modal').val();
+
+            // 1. Cek Pemilihan Rak
+            if (!selectedRackId) {
+                alert("Harap pilih lokasi Rak terlebih dahulu.");
+                return;
+            }
+
+            // 2. Cek SKU Part Lama (Jika field ada dan dibutuhkan)
+            if ($('#lead_assigned_sku_modal').length && !leadAssignedSku) {
+                alert("Harap isi SKU Part Lama yang dikembalikan.");
+                return;
+            }
+
+            // 3. Pindahkan data Rak ke field hidden
+            $('#selected_rack_id').val(selectedRackId);
+
+            // 4. Pindahkan data SKU Part Lama ke form utama jika ada
+            if ($('#lead_assigned_sku_modal').length) {
+                // Buat input hidden sementara di form utama jika belum ada
+                if (!$('#lead_assigned_sku_hidden').length) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        id: 'lead_assigned_sku_hidden',
+                        name: 'lead_assigned_sku'
+                    }).appendTo('#final_check_form');
+                }
+                $('#lead_assigned_sku_hidden').val(leadAssignedSku);
+            }
+
+            // 5. Tambahkan flag 'approve' agar backend tahu ini adalah aksi approve
+            // (Tombol yang di-trigger adalah tombol "Final Approve" ini, bukan tombol "Approve" asli)
+            if (!$('#approve_hidden_flag').length) {
+                $('<input>').attr({
+                    type: 'hidden',
+                    id: 'approve_hidden_flag',
+                    name: 'approve',
+                    value: 'true'
+                }).appendTo('#final_check_form');
+            }
+
+            // 6. Tutup modal
+            $('#rackSelectionModalFinal').modal('hide');
+
+            // 7. Submit form utama
+            $('#final_check_form').submit();
+        });
+
+        // Karena tombol reject masih submit form utama, pastikan tombol submit yang dipicu itu adalah tombol 'reject'
+        $('button[name="reject"]').on('click', function () {
+            // Hapus flag 'approve' jika ada
+            $('#approve_hidden_flag').remove();
+            // Pastikan tidak ada data rak tersembunyi yang ikut terkirim saat reject
+            $('#selected_rack_id').val('');
+        });
+    });
+</script>
 {% endblock %}

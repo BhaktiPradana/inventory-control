@@ -22,16 +22,25 @@
                     <i class="bi bi-info-circle me-1 text-primary"></i> PO yang dibuat di sini akan dikirim ke Warehouse Manager untuk approval.
                 </p>
 
-                <form method="POST">
+                <form method="POST" id="poCreationForm">
                     {% csrf_token %}
 
                     <h2 class="h5 mb-4 text-secondary"><i class="bi bi-list-ul me-1"></i> Detail Order Pembelian</h2>
 
                     {{ form|crispy }}
 
-                    <div class="d-grid mt-5">
-                        <button type="submit" class="btn btn-lg shadow" style="background-color: #a569bd; color: white;">
-                            <i class="bi bi-send-fill me-2"></i> Simpan dan Kirim ke WM
+                    <div class="alert alert-info small" id="rackSelectionInfo" style="display:none;">
+                        Saran Rak Terpilih: <strong id="selectedRackLocation">N/A</strong>
+                        <button type="button" class="btn btn-sm btn-outline-danger float-end" id="clearRackSelection">Clear</button>
+                    </div>
+
+                    <h2 class="h5 mt-4 mb-3 text-secondary"><i class="bi bi-grid-3x3-gap-fill me-1"></i> Lokasi Rak Awal (Saran)</h2>
+                    <p class="small text-muted">Tentukan saran lokasi rak utama untuk SKU dalam PO ini.</p>
+
+                    <div class="d-grid mt-4">
+                        <button type="button" class="btn btn-lg shadow" style="background-color: #a569bd; color: white;"
+                                id="submitAndOpenModal">
+                            <i class="bi bi-box-seam me-2"></i> Pilih Lokasi Rak & Kirim ke WM
                         </button>
                     </div>
                 </form>
@@ -40,4 +49,231 @@
 
     </div>
 </div>
+
+<div class="modal fade" id="rackSelectionModal" tabindex="-1" aria-labelledby="rackSelectionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="rackSelectionModalLabel"><i class="bi bi-grid-3x3-gap-fill me-2"></i> Pilih Lokasi Rak (Saran)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">
+                    Pilih satu lokasi rak **Available (Hijau)** yang paling sesuai untuk SKU dari PO ini.
+                </p>
+
+                <p class="text-muted mb-4">
+                    <span class="badge bg-success me-2">HIJAU</span> = Available (Kosong)<br>
+                    <span class="badge bg-danger me-2">MERAH</span> = Used (Terisi oleh SKU)
+                </p>
+
+                {% for row_prefix, racks in rack_grid.items %}
+                <h5 class="mt-4 mb-3 fw-bold text-dark border-bottom pb-2">Area Rak: {{ row_prefix }}</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for rack in racks %}
+                    <div class="selectable-rack p-2 border rounded text-center shadow-sm
+                            {% if rack.status == 'Available' and not rack.occupied_by_sku %} bg-success text-white cursor-pointer
+                            {% elif rack.status == 'Used' or rack.occupied_by_sku %} bg-danger text-white cursor-default disabled
+                            {% endif %}"
+                         style="min-width: 80px;"
+                         title="{{ rack.status }} - {{ rack.rack_location }}"
+                         data-rack-id="{{ rack.id }}"
+                         data-rack-location="{{ rack.rack_location }}">
+                        <i class="bi bi-box{% if rack.status == 'Used' or rack.occupied_by_sku %}-fill{% endif %} me-1"></i>
+                        <small class="d-block fw-bold">{{ rack.rack_location }}</small>
+                        <small class="d-block text-white-50 small">{% if rack.status == 'Available' and not rack.occupied_by_sku %}Kosong{% else %}Terisi{% endif %}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% empty %}
+                <p class="alert alert-warning text-center">Tidak ada data Slot Rak Gudang yang tersedia.</p>
+                {% endfor %}
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-success" id="confirmRackSelection">Simpan Saran & Kirim PO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block extrascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
+            console.error("Bootstrap 5 JavaScript object not found. Make sure Bootstrap 5 JS is loaded before this script.");
+        }
+
+        const rackModal = document.getElementById('rackSelectionModal');
+        const poForm = document.getElementById('poCreationForm');
+        const confirmButton = document.getElementById('confirmRackSelection');
+        const submitAndOpenModalButton = document.getElementById('submitAndOpenModal');
+        const rackInfo = document.getElementById('rackSelectionInfo');
+        const selectedRackLocation = document.getElementById('selectedRackLocation');
+        const clearRackSelection = document.getElementById('clearRackSelection');
+
+        const suggestedRackField = document.getElementById('id_suggested_rack');
+        let selectedRackId = suggestedRackField.value || null;
+        let selectedRackLoc = "N/A";
+
+        // --- Fungsi Validasi Form Utama ---
+        function isMainFormValid() {
+            console.log("Memulai Validasi Form Utama...");
+            const poNumberField = document.getElementById('id_po_number');
+            const skuCountField = document.getElementById('id_expected_sku_count');
+            const buyPriceField = document.getElementById('id_buy_price');
+
+            // Cek PO Number (Wajib diisi)
+            if (!poNumberField || poNumberField.value.trim() === '') {
+                alert("Nomor PO wajib diisi.");
+                poNumberField.focus();
+                console.error("Validasi Gagal: Nomor PO kosong."); // LOGGING
+                return false;
+            }
+
+            // Cek Expected SKU Count (Wajib diisi, angka >= 1)
+            const skuCount = parseInt(skuCountField ? skuCountField.value : '0');
+            if (!skuCountField || isNaN(skuCount) || skuCount < 1) {
+                alert("Jumlah SKU Diharapkan harus berupa angka minimal 1.");
+                skuCountField.focus();
+                console.error("Validasi Gagal: Jumlah SKU tidak valid."); // LOGGING
+                return false;
+            }
+
+            // Cek Buy Price (Wajib diisi, angka >= 0)
+            const buyPrice = parseFloat(buyPriceField ? buyPriceField.value : '0');
+            if (!buyPriceField || isNaN(buyPrice) || buyPrice < 0) {
+                alert("Harga Beli Total wajib diisi dan harus berupa angka non-negatif.");
+                buyPriceField.focus();
+                console.error("Validasi Gagal: Harga Beli tidak valid."); // LOGGING
+                return false;
+            }
+
+            console.log("Validasi Form Utama Lulus."); // LOGGING
+            return true;
+        }
+
+        // Logika inisialisasi tampilan rackSelectionInfo (jika ada nilai dari POST yang gagal)
+        if (selectedRackId) {
+            const initialRackDiv = document.querySelector(`.selectable-rack[data-rack-id="${selectedRackId}"]`);
+            if (initialRackDiv) {
+                selectedRackLoc = initialRackDiv.dataset.rackLocation;
+                rackInfo.style.display = 'block';
+                selectedRackLocation.textContent = selectedRackLoc;
+            } else {
+                selectedRackId = null;
+                suggestedRackField.value = '';
+            }
+        }
+
+
+        // Fungsi untuk menandai rak yang dipilih
+        document.querySelectorAll('.selectable-rack:not(.disabled)').forEach(rackDiv => {
+            rackDiv.addEventListener('click', function () {
+                document.querySelectorAll('.selectable-rack:not(.disabled)').forEach(d => {
+                    d.classList.remove('border-3', 'border-warning');
+                    d.style.transform = '';
+                });
+
+                this.classList.add('border-3', 'border-warning');
+                this.style.transform = 'scale(1.05)';
+
+                selectedRackId = this.dataset.rackId;
+                selectedRackLoc = this.dataset.rackLocation;
+            });
+        });
+
+        // =====================================================================
+        // >>> LOGIKA 1: KLIK TOMBOL UTAMA (Validasi & Buka Modal) <<<
+        // =====================================================================
+        submitAndOpenModalButton.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            // 1. Validasi data form utama (PO details)
+            if (isMainFormValid()) {
+                // 2. Jika valid, buka modal Rack Selection
+                const modalInstance = new bootstrap.Modal(rackModal);
+                modalInstance.show();
+            } else {
+                // Notifikasi error sudah muncul dari alert/focus di isMainFormValid()
+            }
+        });
+
+        // =====================================================================
+        // >>> LOGIKA 2: SUBMIT FORM SAAT KONFIRMASI RACK DI MODAL <<<
+        // =====================================================================
+        confirmButton.addEventListener('click', function () {
+
+            // 1. Set nilai ke field form yang akan diproses Django
+            suggestedRackField.value = selectedRackId || '';
+
+            // 2. Konfirmasi pilihan Rak jika tidak memilih
+            if (!selectedRackId) {
+                if (!confirm("Anda belum memilih lokasi rak. Apakah Anda yakin ingin mengirim PO tanpa saran lokasi?")) {
+                    return; // Batalkan submit
+                }
+            }
+            confirmButton.disabled = true;
+            confirmButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Mengirim PO...';
+
+            // 3. Tutup modal
+            const modalInstance = bootstrap.Modal.getInstance(rackModal);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+
+            // 4. Update UI info rack
+            if (selectedRackId) {
+                selectedRackLocation.textContent = selectedRackLoc;
+                rackInfo.style.display = 'block';
+            } else {
+                selectedRackLocation.textContent = 'Tidak Ada';
+                rackInfo.style.display = 'none';
+            }
+
+            poForm.submit();
+        });
+
+        // --- Logika Tambahan ---
+        clearRackSelection.addEventListener('click', function () {
+            selectedRackId = null;
+            selectedRackLoc = "N/A";
+            suggestedRackField.value = '';
+            rackInfo.style.display = 'none';
+
+            document.querySelectorAll('.selectable-rack').forEach(d => {
+                d.classList.remove('border-3', 'border-warning');
+                d.style.transform = '';
+            });
+        });
+
+        // Logic saat modal ditutup: Highlight pilihan yang tersimpan
+        rackModal.addEventListener('hidden.bs.modal', function () {
+            // Mengambil nilai rack ID yang sudah tersimpan di field hidden
+            const savedRackId = suggestedRackField.value;
+
+            document.querySelectorAll('.selectable-rack').forEach(d => {
+                d.classList.remove('border-3', 'border-warning');
+                d.style.transform = '';
+
+                // Bandingkan dengan savedRackId
+                if (d.dataset.rackId === savedRackId) {
+                    d.classList.add('border-3', 'border-warning');
+                    d.style.transform = 'scale(1.05)';
+                    // Update tampilan di luar modal
+                    selectedRackLocation.textContent = d.dataset.rackLocation;
+                    rackInfo.style.display = 'block';
+                }
+            });
+
+            // Jika tidak ada yang tersimpan (dihapus/dibatalkan tanpa memilih)
+            if (!savedRackId) {
+                selectedRackLocation.textContent = 'N/A';
+                rackInfo.style.display = 'none';
+            }
+        });
+    });
+</script>
 {% endblock %}

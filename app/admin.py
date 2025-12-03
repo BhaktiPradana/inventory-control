@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PurchasingNotification
+from .models import PurchasingNotification, Rack
 from .models import (
     PurchaseOrder, 
     SKU, 
@@ -11,7 +11,10 @@ from .models import (
     StockAdjustment,
     SalesOrder, 
     Payment,
-    Quotation
+    Quotation,
+    Store, 
+    SalesAssignment,
+    Rack
 )
 
 admin.site.register(PurchaseOrder)
@@ -26,3 +29,6 @@ admin.site.register(StockAdjustment)
 admin.site.register(SalesOrder)
 admin.site.register(Payment)
 admin.site.register(Quotation)
+admin.site.register(Store)
+admin.site.register(SalesAssignment)
+admin.site.register(Rack)

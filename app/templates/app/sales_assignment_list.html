@@ -1,0 +1,107 @@
+{% extends "app/base.html" %}
+
+{% block title %}Manajemen Penugasan Sales ke Store{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h2 class="h3 mb-0"><i class="fas fa-users-cog me-2"></i> Penugasan Sales ke Store</h2>
+        <a href="{% url 'sales_assignment_add' %}" class="btn btn-success">
+            <i class="fas fa-user-plus me-1"></i> Tugaskan Sales Baru
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="row">
+
+        {# Bagian Kiri: Sales yang Sudah Ditugaskan #}
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Sales Telah Ditugaskan ({{ assignments.count }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if assignments %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Sales Person</th>
+                                    <th>Store Ditugaskan</th>
+                                    <th>Ditugaskan Oleh</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for assignment in assignments %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ assignment.sales_person.username }}</strong>
+                                        <small class="text-muted">({{ assignment.sales_person.email|default:"N/A" }})</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info text-dark">{{ assignment.assigned_store.name }}</span>
+                                    </td>
+                                    <td>
+                                        <small>{{ assignment.assigned_by.username|default:"Sistem" }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'sales_assignment_edit' assignment.id %}" class="btn btn-sm btn-warning" title="Ubah Penugasan Store">
+                                            <i class="fas fa-sync-alt"></i> Ubah Store
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Belum ada Sales yang ditugaskan ke Store manapun.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# Bagian Kanan: Sales yang Belum Ditugaskan #}
+        <div class="col-lg-4 mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-header bg-info text-dark">
+                    <h5 class="card-title mb-0">Sales Belum Ditugaskan ({{ unassigned_sales.count }})</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for sales in unassigned_sales %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ sales.username }}</strong>
+                            <br><small class="text-muted">{{ sales.email|default:"N/A" }}</small>
+                        </div>
+                        <a href="{% url 'sales_assignment_add' %}?user={{ sales.id }}" class="btn btn-sm btn-success" title="Tugaskan Sekarang">
+                            <i class="fas fa-map-pin"></i> Tugaskan
+                        </a>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-center text-success">
+                        <i class="fas fa-check-circle me-1"></i> Semua Sales sudah memiliki Store.
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="card-footer text-center">
+                    <a href="{% url 'master_role_dashboard' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Dashboard Master
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

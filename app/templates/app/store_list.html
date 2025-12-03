@@ -1,0 +1,108 @@
+{% extends "app/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}Manajemen Daftar Store{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+        <h2 class="h3 mb-0"><i class="fas fa-store me-2"></i> Daftar Lokasi Store</h2>
+        <a href="{% url 'store_add' %}" class="btn btn-success">
+            <i class="fas fa-plus-circle me-1"></i> Tambah Store Baru
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if stores %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama Store</th>
+                            <th>Alamat Lokasi</th>
+                            <th>Status Aktif</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for store in stores %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <strong>{{ store.name }}</strong>
+                                {% if not store.is_active %}
+                                <span class="badge bg-danger ms-2">Non-Aktif</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ store.location_address|default:"[Alamat belum diisi]"|truncatechars:70 }}</small>
+                            </td>
+                            <td>
+                                {% if store.is_active %}
+                                <span class="badge bg-success">Aktif</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">Tidak Aktif</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'store_edit' store.id %}" class="btn btn-sm btn-warning me-2" title="Edit Store">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteStoreModal-{{ store.id }}" title="Hapus Store">
+                                    <i class="fas fa-trash-alt"></i> Hapus
+                                </button>
+                            </td>
+                        </tr>
+
+                        <div class="modal fade" id="deleteStoreModal-{{ store.id }}" tabindex="-1" aria-labelledby="deleteStoreModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title" id="deleteStoreModalLabel">Konfirmasi Penghapusan Store</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Apakah Anda yakin ingin menghapus Store <strong>{{ store.name }}</strong>?</p>
+                                        <p class="text-danger small">
+                                            * Penghapusan hanya dapat dilakukan jika tidak ada Sales yang ditugaskan atau SKU yang berlokasi di Store ini.
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                        <form method="post" action="{% url 'store_delete' store.id %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger">Hapus Permanen</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-1"></i> Belum ada Store yang terdaftar. Klik tombol "Tambah Store Baru" di atas.
+            </div>
+            {% endif %}
+
+            <hr>
+            <a href="{% url 'master_role_dashboard' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i> Kembali ke Dashboard Master
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,14 +1,21 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User, Group
-from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation
+from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation, Store, SalesAssignment, MovementRequest, Rack
 
 class CustomUserCreationForm(UserCreationForm):
+    all_groups = Group.objects.all()
+    try:
+        master_role = Group.objects.get(name='Master Role')
+        filtered_groups = Group.objects.exclude(id=master_role.id)
+    except Group.DoesNotExist:
+        filtered_groups = Group.objects.all()
+
     role = forms.ModelChoiceField(
-        queryset=Group.objects.all(), 
-        widget=forms.RadioSelect, 
-        required=True, 
-        label="Pilih Peran Anda" 
+        queryset=filtered_groups,
+        widget=forms.RadioSelect,
+        required=True,
+        label="Pilih Peran Anda"
     )
 
     class Meta(UserCreationForm.Meta):
@@ -16,19 +23,37 @@ class CustomUserCreationForm(UserCreationForm):
 
 # Form untuk membuat PO oleh Purchasing
 class PurchaseOrderForm(forms.ModelForm):
+
     class Meta:
         model = PurchaseOrder
-        fields = ['po_number', 'expected_sku_count', 'buy_price']
+        # Pastikan field utama dan suggested_rack disertakan:
+        fields = ['po_number', 'expected_sku_count', 'buy_price', 'suggested_rack'] 
         labels = {
             'po_number': 'Nomor PO',
             'expected_sku_count': 'Jumlah SKU Diharapkan',
-            'buy_price': 'Harga Beli Total (Rp)'
-            }
+            'buy_price': 'Harga Beli Total (Rp)',
+            'suggested_rack': 'Saran Lokasi Rak'
+        }
         widgets = {
             'po_number': forms.TextInput(attrs={'class': 'form-control'}),
             'expected_sku_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'buy_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            }
+            'buy_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}), 
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # 1. Mengatur Queryset untuk suggested_rack (ForeignKey)
+        if 'suggested_rack' in self.fields:
+            self.fields['suggested_rack'].queryset = Rack.objects.filter(
+                status='Available', 
+                occupied_by_sku__isnull=True
+            ).order_by('rack_location')
+            
+            # 2. Menyembunyikan widget field model agar diurus oleh input hidden di HTML
+            self.fields['suggested_rack'].widget = forms.HiddenInput()
+            self.fields['suggested_rack'].label = ''
+            
 
 # Form untuk WM me-reject PO
 class PORejectionForm(forms.ModelForm):
@@ -199,3 +224,95 @@ class ShippingFileForm(forms.ModelForm):
             'shipping_receipt': forms.FileInput(attrs={'class': 'form-control'}),
             'proof_of_receipt': forms.FileInput(attrs={'class': 'form-control'}),
         }
+
+class StoreForm(forms.ModelForm):
+    """Form untuk menambah/mengedit Store."""
+    class Meta:
+        model = Store
+        fields = ['name', 'location_address', 'is_active']
+        labels = {
+            'name': 'Nama Store',
+            'location_address': 'Alamat Lokasi Store',
+            'is_active': 'Status Aktif'
+        }
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'location_address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+# --- FORM BARU UNTUK PENUGASAN SALES KE STORE ---
+class SalesAssignmentForm(forms.ModelForm):
+    """Form untuk Master Role menugaskan Sales ke Store."""
+    sales_person = forms.ModelChoiceField(
+        queryset=User.objects.filter(groups__name='Sales'),
+        label='Pilih Sales Person',
+        widget=forms.Select(attrs={'class': 'form-select select2-user'})
+    )
+    assigned_store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True),
+        label='Store yang Ditugaskan',
+        widget=forms.Select(attrs={'class': 'form-select select2-store'})
+    )
+    
+    class Meta:
+        model = SalesAssignment
+        fields = ['sales_person', 'assigned_store']
+
+class MovementRequestForm(forms.ModelForm):
+    """Form untuk Warehouse Manager membuat Movement Request baru."""
+    # Memilih Store tujuan
+    requested_by_store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True),
+        label='Diminta oleh (Store/Shop)',
+        widget=forms.Select(attrs={'class': 'form-select select2-store', 'required': True})
+    )
+    
+    # Memilih SKU yang siap pindah
+    sku_to_move = forms.ModelChoiceField(
+        queryset=SKU.objects.filter(status='Ready', shelf_location__isnull=False),
+        label='Pilih SKU (Barang Ready Gudang)',
+        widget=forms.Select(attrs={'class': 'form-select select2-sku-move', 'required': True, 'data-placeholder': 'Cari SKU Ready...'})
+    )
+
+    class Meta:
+        model = MovementRequest
+        fields = ['sku_to_move', 'requested_by_store', 'delivery_form']
+        labels = {
+            'delivery_form': 'Upload Form Pengiriman (DO)',
+        }
+        widgets = {
+            'delivery_form': forms.FileInput(attrs={'class': 'form-control form-control-lg shadow-sm', 'required': True}),
+        }
+
+class RackSelectionForm(forms.Form):
+    # Hanya menampilkan rak yang 'Available' (Hijau) DAN belum ditempati
+    available_racks = forms.ModelChoiceField(
+        queryset=Rack.objects.filter(status='Available', occupied_by_sku__isnull=True),
+        label="Pilih Lokasi Rak (Hijau = Available)",
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select select2-rack-available'})
+    )
+
+
+class RackForm(forms.ModelForm):
+    """Form untuk menambah/mengedit Rak Gudang."""
+    class Meta:
+        model = Rack
+        fields = ['rack_location', 'status']
+        labels = {
+            'rack_location': 'Lokasi Rak (Contoh: A1-01)',
+            'status': 'Status Awal'
+        }
+        widgets = {
+            'rack_location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Contoh: A1-01'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+        }
+    
+    # Menonaktifkan status untuk mencegah user mengubahnya di form create/edit biasa
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Status akan diatur secara otomatis saat membuat, atau diubah oleh sistem (saat ditempati)
+        if self.instance and self.instance.occupied_by_sku:
+             self.fields['status'].disabled = True
+             self.fields['status'].help_text = "Status tidak bisa diubah karena rak sedang terisi."

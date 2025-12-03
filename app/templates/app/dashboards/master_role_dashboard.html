@@ -1,0 +1,160 @@
+{% extends "app/base.html" %}
+
+{% block title %}Dashboard Master Role{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3">
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <i class="fas fa-lock me-2"></i>
+                    <span>Otorisasi Master Role</span>
+                </h6>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="{% url 'master_role_dashboard' %}">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Dashboard Utama
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-database me-2"></i>
+                            View/Edit Semua Data (via Admin)
+                        </a>
+                        <p class="text-muted small ms-4">
+                            <a href="/admin/" target="_blank">Akses Django Admin</a>
+                        </p>
+                    </li>
+                </ul>
+
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <i class="fas fa-store me-2"></i>
+                    <span>Manajemen Store & Sales</span>
+                </h6>
+                <ul class="nav flex-column mb-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'store_list' %}">
+                            <i class="fas fa-list-alt me-2"></i>
+                            Kelola Daftar Store
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'store_add' %}">
+                            <i class="fas fa-plus-circle me-2"></i>
+                            **Tambah Store Baru**
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'sales_assignment_list' %}">
+                            <i class="fas fa-users-cog me-2"></i>
+                            Penugasan Sales ke Store
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'sales_assignment_add' %}">
+                            <i class="fas fa-user-plus me-2"></i>
+                            Tugaskan Sales Baru
+                        </a>
+                    </li>
+                </ul>
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <i class="bi bi-box-seam me-2"></i>
+                    <span>Manajemen Rak Gudang</span>
+                </h6>
+                <ul class="nav flex-column mb-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'rack_list' %}">
+                            <i class="bi bi-grid-3x3-gap-fill me-2"></i>
+                            Kelola Slot Rak
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'rack_add' %}">
+                            <i class="bi bi-plus-square me-2"></i>
+                            **Tambah Rak Baru**
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2"><i class="fas fa-crown me-2"></i>Selamat Datang, Master Role!</h1>
+            </div>
+
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Store Aktif</h5>
+                            <p class="card-text h1">{{ total_stores }}</p>
+                            <a href="{% url 'store_list' %}" class="text-white">Lihat Detail &raquo;</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h5 class="card-title">Sales Ter-Tugaskan</h5>
+                            <p class="card-text h1">{{ total_sales_assigned }}</p>
+                            <a href="{% url 'sales_assignment_list' %}" class="text-white">Kelola Penugasan &raquo;</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Semua User</h5>
+                            <p class="card-text h1">{{ total_users }}</p>
+                            <a href="/admin/auth/user/" target="_blank" class="text-white">Kelola User (Admin) &raquo;</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="mt-4">Daftar Penugasan Sales Saat Ini</h3>
+            <div class="table-responsive">
+                <table class="table table-striped table-sm">
+                    <thead>
+                        <tr>
+                            <th>Sales Person</th>
+                            <th>Store Ditugaskan</th>
+                            <th>Ditugaskan Oleh</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>{{ assignment.sales_person.username }}</td>
+                            <td>**{{ assignment.assigned_store.name }}**</td>
+                            <td>{{ assignment.assigned_by.username|default:"N/A" }}</td>
+                            <td>
+                                <a href="{% url 'sales_assignment_edit' assignment.id %}" class="btn btn-sm btn-outline-warning">Edit</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">Belum ada penugasan Sales ke Store.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+    </div>
+</div>
+{% endblock %}

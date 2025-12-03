@@ -1,2 +1,2 @@
-D:\InventoryControl\InventoryControl\obj\Any CPU\Debug\InventoryControl.pyproj.CoreCompileInputs.cache
 C:\Users\Bhakti\OneDrive - Bina Nusantara\project\InventoryControl\obj\Any CPU\Debug\InventoryControl.pyproj.CoreCompileInputs.cache
+D:\InventoryControl\InventoryControl\obj\Any CPU\Debug\InventoryControl.pyproj.CoreCompileInputs.cache

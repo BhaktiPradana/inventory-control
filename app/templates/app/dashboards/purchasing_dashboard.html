@@ -8,7 +8,6 @@
 <div class="row g-4">
 
     <div class="col-lg-8">
-
         <div class="card card-glossy shadow-lg mb-4">
             <div class="card-header card-header-professional" style="background-color: #a569bd; color: white;">
                 <h1 class="h4 mb-0"><i class="bi bi-cart-check me-2"></i> DASHBOARD PURCHASING</h1>
@@ -21,7 +20,86 @@
                 </div>
             </div>
         </div>
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header card-header-professional text-white" style="background-color: #5d6d7e;">
+                <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2"></i> Riwayat Purchase Order (PO)</h2>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="mb-4">
+                    <div class="input-group">
+                        <input type="text" name="po_search" class="form-control" placeholder="Cari berdasarkan Nomor PO..." value="{{ search_query|default_if_none:'' }}">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="bi bi-search"></i> Search PO
+                        </button>
+                        {% if search_query %}
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-danger" title="Hapus Pencarian">
+                            <i class="bi bi-x-circle"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
 
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-secondary sticky-top">
+                            <tr>
+                                <th>Nomor PO</th>
+                                <th>Nominal</th>
+                                <th>Jml SKU</th>
+                                <th>Status</th>
+                                <th>Tgl Dibuat</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for po in history_pos %}
+                            <tr class="
+                        {% if po.status == 'Finished' %}table-success{% endif %}
+                        {% if po.status == 'Delivered' %}table-info{% endif %}
+                        {% if po.status == 'Rejected' %}table-danger{% endif %}
+                    ">
+                                <td class="fw-bold">{{ po.po_number }}</td>
+                                <td>
+                                    <strong class="text-primary">Rp {{ po.buy_price|default:0|intcomma }}</strong>
+                                </td>
+                                <td>{{ po.expected_sku_count }}</td>
+                                <td>
+                                    {% if po.status == 'Finished' %}
+                                    <span class="badge bg-success">Finished</span>
+                                    {% elif po.status == 'Delivered' %}
+                                    <span class="badge bg-info">Delivered</span>
+                                    {% elif po.status == 'Pending' %}
+                                    <span class="badge bg-warning text-dark">Pending Delivery</span>
+                                    {% elif po.status == 'Rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ po.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ po.created_at|date:"d M Y" }}</td>
+                                <td class="text-center">
+                                    <a href="{% url 'receiving_detail' po.id %}" class="btn btn-sm btn-outline-primary shadow-sm" title="Lihat Detail Penerimaan">
+                                        <i class="bi bi-eye"></i> Detail
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada riwayat Purchase Order yang ditemukan.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if search_query and history_pos|length > 0 %}
+                <p class="text-muted mt-3 small">
+                    Menampilkan {{ history_pos|length }} hasil untuk pencarian: <strong>"{{ search_query }}"</strong>.
+                </p>
+                {% endif %}
+            </div>
+        </div>
         <div class="card card-glossy shadow-lg mb-4">
             <div class="card-header bg-primary text-white border-bottom border-primary">
                 <h2 class="h5 mb-0"><i class="bi bi-list-check me-2"></i> Daftar Spare Part (Disetujui untuk Dibeli)</h2>

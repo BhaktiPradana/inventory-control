@@ -1,46 +1,66 @@
 {% extends 'app/base.html' %}
+{% load crispy_forms_tags %}
+{# Import crispy_forms_tags agar form MovementRequestForm bisa di render dengan rapi #}
 
 {% block title %}Proses Movement Barang{% endblock %}
 
 {% block content %}
+<style>
+    /* Styling khusus untuk badge Sales di tabel agar lebih menonjol */
+    .table-sales-badge {
+        font-size: 0.85em;
+        padding: 0.4em 0.6em;
+        display: inline-block;
+        min-width: 120px;
+        text-align: center;
+        border-radius: 5px;
+    }
+</style>
 
-<a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard WM
-</a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0 fw-bold text-primary"><i class="bi bi-truck me-2"></i> Proses Movement Barang (Warehouse ke Shop)</h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary shadow-sm">
+        <i class="bi bi-arrow-left me-1"></i> Kembali ke Dashboard WM
+    </a>
+</div>
 
-<h1 class="h3 mb-4 fw-bold text-primary"><i class="bi bi-truck me-2"></i> Proses Movement Barang (Warehouse ke Shop)</h1>
+<div class="row g-4">
 
-<div class="row row-cols-1 row-cols-lg-2 g-4">
-
-    <div class="col">
+    {# --- KOLOM KIRI: FORMULIR PENGIRIMAN BARU --- #}
+    <div class="col-lg-5">
         <div class="card card-glossy shadow-lg h-100">
             <div class="card-header card-header-professional text-white">
-                <h2 class="h5 mb-0"><i class="bi bi-send me-2"></i> 1. Buat Pengiriman Baru</h2>
+                <h2 class="h5 mb-0"><i class="bi bi-send me-2"></i> 1. Buat Permintaan Pengiriman</h2>
             </div>
-            <div class="card-body p-4 p-md-5">
+            <div class="card-body p-4">
                 <form method="POST" enctype="multipart/form-data">
                     {% csrf_token %}
-                    <div class="mb-4">
-                        <label for="sku_id" class="form-label fw-bold text-secondary"><i class="bi bi-box-seam me-1"></i> Pilih SKU (Barang Ready):</label>
-                        <select id="sku_id" name="sku_id" class="form-select form-select-lg shadow-sm" required>
-                            <option value="">--- Pilih SKU ---</option>
-                            {% for sku in skus_ready_to_move %}
-                            <option value="{{ sku.id }}">{{ sku.sku_id }} - {{ sku.name }} (di {{ sku.shelf_location }})</option>
-                            {% endfor %}
-                        </select>
+
+                    {# Menggunakan Crispy Forms untuk rendering field yang lebih bersih #}
+                    {# Field SKU To Move #}
+                    <div class="mb-3">
+                        <label for="id_sku_to_move" class="form-label fw-bold text-secondary"><i class="bi bi-box-seam me-1"></i> Pilih SKU (Barang Ready):</label>
+                        {{ movement_form.sku_to_move }}
+                        <div class="form-text">Hanya SKU berstatus **Ready** dan sudah memiliki lokasi rak yang terdaftar.</div>
                     </div>
-                    <div class="mb-4">
-                        <label for="requested_by_shop" class="form-label fw-bold text-secondary"><i class="bi bi-shop me-1"></i> Diminta oleh (Shop):</label>
-                        <input type="text" id="requested_by_shop" name="requested_by_shop" class="form-control form-control-lg shadow-sm" required placeholder="Nama Toko/Penerima">
+
+                    {# Field Store Tujuan #}
+                    <div class="mb-3">
+                        <label for="id_requested_by_store" class="form-label fw-bold text-secondary"><i class="bi bi-shop me-1"></i> Store Tujuan:</label>
+                        {{ movement_form.requested_by_store }}
+                        <div class="form-text">Store yang akan menerima dan bertanggung jawab atas SKU ini.</div>
                     </div>
+
+                    {# Field Upload Form DO #}
                     <div class="mb-4">
-                        <label for="delivery_form" class="form-label fw-bold text-secondary"><i class="bi bi-upload me-1"></i> Upload Form Pengiriman (DO):</label>
-                        <input type="file" id="delivery_form" name="delivery_form" class="form-control form-control-lg shadow-sm" required>
+                        <label for="id_delivery_form" class="form-label fw-bold text-secondary"><i class="bi bi-file-earmark-arrow-up me-1"></i> Upload Form Pengiriman (DO):</label>
+                        {{ movement_form.delivery_form }}
                         <div class="form-text">File wajib berupa PDF atau Gambar.</div>
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" name="create_movement" class="btn btn-primary w-100 btn-lg mt-3 shadow">
-                            <i class="bi bi-truck me-2"></i> Kirim Barang (Set Status 'Delivering')
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" name="create_movement" class="btn btn-primary w-100 btn-lg shadow">
+                            <i class="bi bi-box-arrow-in-right me-2"></i> Konfirmasi & Kirim Barang
                         </button>
                     </div>
                 </form>
@@ -48,47 +68,56 @@
         </div>
     </div>
 
-    <div class="col">
+    {# --- KOLOM KANAN: PENGIRIMAN DALAM PERJALANAN --- #}
+    <div class="col-lg-7">
         <div class="card card-glossy shadow-lg h-100">
             <div class="card-header bg-dark text-white">
-                <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2"></i> 2. Pengiriman dalam Perjalanan</h2>
+                <h2 class="h5 mb-0"><i class="bi bi-clock-history me-2"></i> 2. Daftar Pengiriman dalam Perjalanan</h2>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-striped table-hover align-middle mb-0">
                         <thead class="table-light sticky-top">
                             <tr>
-                                <th>SKU ID</th>
-                                <th>Tujuan</th>
-                                <th>Form DO</th>
-                                <th class="text-center">Aksi</th>
+                                <th class="text-nowrap">SKU ID</th>
+                                <th>Tujuan Store</th>
+                                <th>Penanggung Jawab Sales</th>
+                                <th class="text-center">Dokumen</th>
+                                <th class="text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for move in movements_in_progress %}
                             <tr>
-                                <td class="fw-bold">{{ move.sku_to_move.sku_id }}</td>
-                                <td><span class="badge bg-secondary">{{ move.requested_by_shop }}</span></td>
+                                <td class="fw-bold text-primary">{{ move.sku_to_move.sku_id }}</td>
                                 <td>
-                                    <a href="{{ move.delivery_form.url }}" target="_blank" class="btn btn-outline-info btn-sm">
-                                        <i class="bi bi-file-earmark-arrow-down"></i> Lihat
-                                    </a>
+                                    <span class="badge bg-secondary">{{ move.requested_by_store.name }}</span>
+                                </td>
+                                <td>
+                                    {# Tampilkan Sales Penanggung Jawab di Store Tujuan #}
+                                    {% with sales_assignment=move.requested_by_store.assigned_sales.first %}
+                                    {% if sales_assignment %}
+                                    <span class="badge bg-info text-dark table-sales-badge">{{ sales_assignment.sales_person.username }}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger table-sales-badge">Belum Ditugaskan</span>
+                                    {% endif %}
+                                    {% endwith %}
                                 </td>
                                 <td class="text-center">
-                                    <button type="button"
-                                            class="btn btn-success btn-sm shadow-sm"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#confirmReceiptModal"
-                                            data-movement-id="{{ move.id }}"
-                                            data-sku-id="{{ move.sku_to_move.sku_id }}">
-                                        <i class="bi bi-check-circle me-1"></i> Konfirmasi Diterima
-                                    </button>
+                                    <a href="{{ move.delivery_form.url }}" target="_blank" class="btn btn-outline-info btn-sm" title="Lihat Dokumen Pengiriman">
+                                        <i class="bi bi-file-earmark-arrow-down"></i> DO
+                                    </a>
+                                </td>
+                                {# Status Penerimaan #}
+                                <td class="text-center">
+                                    <span class="badge bg-warning text-dark py-2 px-3 fw-bold">{{ move.get_status_display }}</span>
+                                    <p class="small text-muted mb-0 mt-1">Menunggu konfirmasi Sales.</p>
                                 </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="4" class="text-center text-muted p-4">
-                                    <i class="bi bi-info-circle me-1"></i> Tidak ada barang yang sedang dikirim.
+                                <td colspan="5" class="text-center text-muted p-4">
+                                    <i class="bi bi-info-circle me-1"></i> Tidak ada barang yang sedang dalam proses pengiriman.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -100,67 +129,43 @@
     </div>
 </div>
 
+{% endblock %}
 
-<div class="modal fade" id="confirmReceiptModal" tabindex="-1" aria-labelledby="confirmReceiptModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content card-glossy shadow-lg">
-
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="modal-header card-header-professional text-white">
-                    <h5 class="modal-title" id="confirmReceiptModalLabel"><i class="bi bi-check-lg me-2"></i> Konfirmasi Penerimaan SKU</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="fs-6">Anda akan mengkonfirmasi penerimaan untuk SKU: <strong id="modalSkuId" class="text-primary"></strong></p>
-
-                    <input type="hidden" name="movement_id" id="modalMovementId" value="">
-
-                    <div class="mb-3">
-                        <label for="receipt_form_file" class="form-label fw-bold text-secondary">Upload Bukti Penerimaan (Wajib)</label>
-                        <input class="form-control form-control-lg" type="file" name="receipt_form_file" id="receipt_form_file" required>
-                        <div class="form-text">Bukti berupa tanda tangan penerima atau form serah terima.</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" name="confirm_received" class="btn btn-success shadow-sm">Upload & Konfirmasi</button>
-                </div>
-            </form>
-
-        </div>
-    </div>
-</div>
+{% block extrascripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var confirmModal = document.getElementById('confirmReceiptModal');
-        if (confirmModal) {
-            confirmModal.addEventListener('show.bs.modal', function (event) {
-                var button = event.relatedTarget;
-                var movementId = button.getAttribute('data-movement-id');
-                var skuId = button.getAttribute('data-sku-id');
+    // Pastikan jQuery dimuat
+    $(document).ready(function () {
+        // Logika inisialisasi Select2 untuk Movement Process
 
-                // Update konten modal
-                var modalSkuIdElement = confirmModal.querySelector('#modalSkuId');
-                var modalMovementIdInput = confirmModal.querySelector('#modalMovementId');
+        // 1. Inisialisasi SKU Movement (Class: select2-sku-move)
+        $('.select2-sku-move').each(function () {
+            var $this = $(this);
+            // Cek apakah elemen sudah terhubung (isConnected) sebelum inisialisasi
+            if ($this.length && $this.is(':visible') && !$this.data('select2')) {
+                $this.select2({
+                    theme: "bootstrap-5",
+                    width: $this.data('width') ? $this.data('width') : $this.hasClass('w-100') ? '100%' : 'style',
+                    placeholder: $this.data('placeholder') || 'Cari SKU Ready...',
+                    dropdownParent: $this.parent()
+                });
+            }
+        });
 
-                if (modalSkuIdElement) {
-                    modalSkuIdElement.textContent = skuId;
-                }
-                if (modalMovementIdInput) {
-                    modalMovementIdInput.value = movementId;
-                }
-            });
-            confirmModal.addEventListener('hidden.bs.modal', function (event) {
-                var modalMovementIdInput = confirmModal.querySelector('#modalMovementId');
-                var modalSkuIdElement = confirmModal.querySelector('#modalSkuId');
-                var fileInput = confirmModal.querySelector('#receipt_form_file');
+        // 2. Inisialisasi Store Tujuan (Class: select2-store)
+        $('.select2-store').each(function () {
+            var $this = $(this);
+            if ($this.length && $this.is(':visible') && !$this.data('select2')) {
+                $this.select2({
+                    theme: "bootstrap-5",
+                    width: $this.data('width') ? $this.data('width') : $this.hasClass('w-100') ? '100%' : 'style',
+                    placeholder: 'Pilih Store Tujuan...',
+                    dropdownParent: $this.parent()
+                });
+            }
+        });
 
-                modalMovementIdInput.value = "";
-                modalSkuIdElement.textContent = "";
-                fileInput.value = null;
-            });
-        }
+        // Menghilangkan pesan error konsol lama
+        console.clear();
     });
 </script>
 {% endblock %}

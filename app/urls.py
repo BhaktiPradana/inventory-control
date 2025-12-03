@@ -34,7 +34,6 @@ urlpatterns = [
     path('sparepart/received/<int:request_id>/', views.mark_part_received, name='mark_part_received'),
     
     # URLs Inventory (WM)
-    path('sku/assign-shelf/<int:sku_id>/', views.assign_shelf, name='assign_shelf'),
     path('movement/', views.movement_process, name='movement_process'),
 
     path('inventory/', views.inventory_dashboard, name='inventory_dashboard'),
@@ -50,6 +49,19 @@ urlpatterns = [
     path('inventory/history/<str:part_name>/', views.get_part_usage_history, name='part_usage_history'),
     path('inventory/api/search/', views.inventory_search_api, name='inventory_search_api'),
 
+    path('master-role/', views.master_role_dashboard, name='master_role_dashboard'),
+    
+    # Kelola Store
+    path('master-role/store/', views.store_list, name='store_list'),
+    path('master-role/store/add/', views.store_add, name='store_add'),
+    path('master-role/store/edit/<int:store_id>/', views.store_edit, name='store_edit'),
+    path('master-role/store/delete/<int:store_id>/', views.store_delete, name='store_delete'),
+
+    # Kelola Penugasan Sales
+    path('master-role/sales-assignment/', views.sales_assignment_list, name='sales_assignment_list'),
+    path('master-role/sales-assignment/add/', views.sales_assignment_add, name='sales_assignment_add'),
+    path('master-role/sales-assignment/edit/<int:assignment_id>/', views.sales_assignment_edit, name='sales_assignment_edit'),
+
     path('sales/order/add/', views.sales_order_add, name='sales_order_add'),
     path('sales/order/<int:order_id>/', views.sales_order_detail, name='sales_order_detail'),
     path('sales/order/<int:order_id>/payment/', views.add_payment, name='add_payment'),
@@ -62,4 +74,11 @@ urlpatterns = [
     path('sales/order/<int:order_id>/print_invoice/', views.print_invoice_a4, name='print_invoice_a4'),
     path('sales/quotation/<int:quotation_id>/print_a4/', views.print_quotation_a4, name='print_quotation_a4'),
     path('sales/order/<int:order_id>/print_label/', views.print_order_label, name='print_order_label'),
+    path('sales/receive-sku/<int:movement_id>/', views.sales_receive_sku, name='sales_receive_sku'),
+
+    path('rack/list/', views.rack_list, name='rack_list'),
+    path('rack/add/', views.rack_add, name='rack_add'),
+    path('rack/edit/<int:rack_id>/', views.rack_edit, name='rack_edit'),
+    path('rack/delete/<int:rack_id>/', views.rack_delete, name='rack_delete'),
+    path('rack/view/', views.rack_grid_view, name='rack_grid_view'),
 ]

@@ -1,0 +1,126 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Peta Slot Rak Gudang{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-12">
+        <div class="card card-glossy shadow-lg mb-4">
+            <div class="card-header card-header-professional text-white">
+                <h1 class="h4 mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i> Peta Slot Rak Gudang (View Bioskop)</h1>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-4">
+                    <span class="badge bg-success me-2">HIJAU</span> = Available (Kosong)<br>
+                    <span class="badge bg-danger me-2">MERAH</span> = Used (Terisi oleh SKU)
+                </p>
+
+                {% for row_prefix, racks in rack_grid.items %}
+                <h5 class="mt-4 mb-3 fw-bold text-dark border-bottom pb-2">Area Rak: {{ row_prefix }}</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for rack in racks %}
+                    {% if rack.status == 'Available' %}
+                    <div class="p-2 border rounded text-center bg-success text-white shadow-sm" style="min-width: 80px; cursor: default;" title="Available - {{ rack.rack_location }}">
+                        <i class="bi bi-box me-1"></i>
+                        <small class="d-block fw-bold">{{ rack.rack_location }}</small>
+                        <small class="d-block text-white-50 small">Kosong</small>
+                    </div>
+                    {% elif rack.status == 'Used' %}
+                    <div class="p-2 border rounded text-center bg-danger text-white shadow-sm"
+                         style="min-width: 80px; cursor: pointer;"
+                         data-bs-toggle="modal" data-bs-target="#rackInfoModal"
+                         data-rack-location="{{ rack.rack_location }}"
+                         data-sku-id="{{ rack.occupied_by_sku.sku_id|default:'N/A' }}"
+                         data-sku-name="{{ rack.occupied_by_sku.name|default:'-' }}"
+                         data-sku-status="{{ rack.occupied_by_sku.get_status_display|default:'-' }}">
+                        <i class="bi bi-box-fill me-1"></i>
+                        <small class="d-block fw-bold">{{ rack.rack_location }}</small>
+                        <small class="d-block text-white-50 small">{{ rack.occupied_by_sku.sku_id|default:'-' }}</small>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% empty %}
+                <p class="alert alert-warning text-center">Tidak ada data Slot Rak Gudang. Silakan tambahkan Rack di menu Admin.</p>
+                {% endfor %}
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rackInfoModal" tabindex="-1" aria-labelledby="rackInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rackInfoModalLabel"><i class="bi bi-box-fill me-2"></i> Detail Slot Rak <span id="modal-rack-location"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="fw-bold text-danger">Status: Rak Terisi (Used)</h6>
+                <hr>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>SKU ID:</strong>
+                        <span id="modal-sku-id" class="fw-bold text-primary"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Nama Mesin/Produk:</strong>
+                        <span id="modal-sku-name"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Status SKU Saat Ini:</strong>
+                        <span id="modal-sku-status" class="badge bg-secondary"></span>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extrascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var rackInfoModal = document.getElementById('rackInfoModal');
+
+        // Tangani event saat modal akan ditampilkan
+        rackInfoModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Elemen <div> rak yang ditekan
+
+            // Ambil data dari atribut data-* (SKU ID dan Nama sudah di-fetch di server side)
+            var rackLocation = button.getAttribute('data-rack-location');
+            var skuId = button.getAttribute('data-sku-id');
+            var skuName = button.getAttribute('data-sku-name');
+            var skuStatus = button.getAttribute('data-sku-status');
+
+            // 1. Isi Lokasi Rak
+            document.getElementById('modal-rack-location').textContent = rackLocation;
+
+            // 2. Isi Detail SKU
+            document.getElementById('modal-sku-id').textContent = skuId;
+            document.getElementById('modal-sku-name').textContent = skuName;
+
+            // 3. Isi dan atur warna Status SKU
+            var statusBadge = document.getElementById('modal-sku-status');
+            statusBadge.textContent = skuStatus;
+            statusBadge.className = 'badge py-2 px-3'; // Reset classes
+
+            // Logic penentuan warna berdasarkan status
+            if (skuStatus.includes('Ready') || skuStatus.includes('Shop')) {
+                statusBadge.classList.add('bg-success');
+            } else if (skuStatus.includes('QC') || skuStatus.includes('Install') || skuStatus.includes('Pending')) {
+                statusBadge.classList.add('bg-warning', 'text-dark');
+            } else if (skuStatus.includes('Sold') || skuStatus.includes('Booked')) {
+                statusBadge.classList.add('bg-info', 'text-dark');
+            } else {
+                statusBadge.classList.add('bg-secondary');
+            }
+        });
+    });
+</script>
+{% endblock %}

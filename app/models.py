@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User 
+from django.contrib.auth.models import User, Group
 from django.utils import timezone
 from django.db.models import Sum
 from django.urls import reverse
@@ -27,6 +27,16 @@ class PurchaseOrder(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending_Approval') # Default diubah
     delivery_receipt = models.FileField(upload_to='po_delivery_receipts/', blank=True, null=True)
 
+    # Field Baru untuk SUGGESTED RACK
+    suggested_rack = models.ForeignKey(
+        'Rack',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='suggested_pos',
+        help_text="Saran Lokasi Rak dari Purchasing"
+    )
+
     # Field Baru untuk approval
     approved_by_wm = models.ForeignKey(
         User, 
@@ -43,6 +53,76 @@ class PurchaseOrder(models.Model):
     def __str__(self):
         return self.po_number
 
+class Store(models.Model):
+    """Model untuk merepresentasikan lokasi toko/outlet."""
+    name = models.CharField(max_length=100, unique=True, help_text="Nama Store/Outlet")
+    location_address = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True, help_text="Apakah store ini aktif")
+    
+    def __str__(self):
+        return self.name
+
+class SalesAssignment(models.Model):
+    """Menghubungkan user Sales dengan Store tertentu."""
+    sales_person = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='store_assignment',
+        limit_choices_to={'groups__name': 'Sales'},
+        unique=True, # Satu Sales hanya punya satu Store aktif
+        help_text="User Sales yang ditugaskan"
+    )
+    assigned_store = models.ForeignKey(
+        Store,
+        on_delete=models.PROTECT, # Jangan hapus Store jika masih ada Sales
+        related_name='assigned_sales',
+        help_text="Store tempat Sales ditugaskan"
+    )
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'groups__name': 'Master Role'}, # Hanya Master Role yang bisa menugaskan
+        help_text="Master Role yang menugaskan"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.sales_person.username} ditugaskan di {self.assigned_store.name}"
+
+class Rack(models.Model):
+    # Kolom untuk representasi Rack (A-01, B-02, dll.)
+    rack_location = models.CharField(max_length=50, unique=True, help_text="Lokasi fisik rak, cth: A1-01")
+
+    # Status Available (Hijau) atau Used (Merah)
+    STATUS_CHOICES = [
+        ('Available', 'Available (Hijau)'),
+        ('Used', 'Used (Merah)'),
+    ]
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='Available')
+
+    # SKU yang menempati rak ini. Jika null, berarti Available.
+    occupied_by_sku = models.OneToOneField(
+        'SKU',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='rack_slot',
+        help_text="SKU yang saat ini menempati slot ini (null jika Available)"
+    )
+    
+    # Kapan status terakhir diubah
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.rack_location
+
+    class Meta:
+        verbose_name = "Slot Rak Gudang"
+        verbose_name_plural = "Slot Rak Gudang"
+        ordering = ['rack_location']
+
 class SKU(models.Model):
     STATUS_CHOICES = [
         ('Receiving', 'Receiving'),
@@ -56,6 +136,15 @@ class SKU(models.Model):
         ('Booked', 'Booked'), 
         ('Sold', 'Sold'),
     ]
+    current_store = models.ForeignKey(
+        Store,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='skus_in_store',
+        limit_choices_to={'is_active': True}, # Hanya bisa Store yang aktif
+        help_text="Store tempat SKU ini berada saat status='Shop'"
+    )
     LOCATION_CHOICES = [
         ('Warehouse', 'Warehouse'),
         ('Shop', 'Shop'),
@@ -72,7 +161,14 @@ class SKU(models.Model):
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Receiving')
     location = models.CharField(max_length=20, choices=LOCATION_CHOICES, default='Warehouse')
-    shelf_location = models.CharField(max_length=50, blank=True, null=True, help_text="Diisi oleh Warehouse Manager")
+    shelf_location = models.ForeignKey(
+        Rack, # Menggunakan model Rack yang baru
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stored_skus',
+        help_text="Slot rak tempat SKU ini diletakkan."
+    )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     shelved_at = models.DateTimeField(null=True, blank=True)
 
@@ -186,16 +282,38 @@ class MovementRequest(models.Model):
     sku_to_move = models.ForeignKey(
         SKU, 
         on_delete=models.PROTECT, 
+        related_name='movements', # Tambah related_name
         limit_choices_to={'status': 'Ready'}
     )
-    requested_by_shop = models.CharField(max_length=100, help_text="Nama toko atau peminta")
+    # REVISI 1 & 3: Mengganti CharField menjadi ForeignKey ke Store
+    requested_by_store = models.ForeignKey(
+        Store,
+        on_delete=models.PROTECT,
+        null=True, 
+        blank=True,
+        related_name='incoming_movements',
+        help_text="Store Tujuan Pengiriman"
+    )
+    # requested_by_shop = models.CharField(max_length=100, help_text="Nama toko atau peminta") # Dihapus
     delivery_form = models.FileField(upload_to='delivery_forms/', blank=True, null=True)
     receipt_form = models.FileField(upload_to='movement_receipts/', blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Delivering') # Default diubah ke Delivering
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     received_at = models.DateTimeField(null=True, blank=True)
+    
+    # REVISI 3: Menambahkan field Sales yang menerima
+    received_by_sales = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='received_movements',
+        limit_choices_to={'groups__name': 'Sales'}
+    )
+
     def __str__(self):
-        return f"Movement request for {self.sku_to_move.sku_id} to {self.requested_by_shop}"
+        # Menggunakan Store Name
+        return f"Movement request for {self.sku_to_move.sku_id} to {self.requested_by_store.name}"
 
 class PurchasingNotification(models.Model):
     po_number = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='notifications')
@@ -453,4 +571,6 @@ class Payment(models.Model):
     
     def __str__(self):
         return f"Payment {self.id} for Order {self.sales_order.id} - {self.amount}"
+
+
 

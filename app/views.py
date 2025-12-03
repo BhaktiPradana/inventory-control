@@ -8,6 +8,7 @@ from django.urls import reverse_lazy
 from django.views import generic
 from django.db.models import Count, Q, Sum 
 from django.db import transaction
+from django.db import IntegrityError
 from django.utils import timezone
 from django.http import JsonResponse
 from django.http import HttpResponse
@@ -22,11 +23,13 @@ from reportlab.pdfgen import canvas
 from django.template.loader import render_to_string
 from .models import (
     PurchaseOrder, SKU, QCForm, SparePartRequest, 
-    TechnicianAnalytics, MovementRequest, PurchasingNotification, SparePartInventory, StockAdjustment, ReturnedPart, InstallationPhoto, SalesOrder, Payment, Quotation
+    TechnicianAnalytics, MovementRequest, PurchasingNotification, SparePartInventory, StockAdjustment, ReturnedPart, InstallationPhoto, SalesOrder, Payment, Quotation, Rack
 )
-from .forms import CustomUserCreationForm, PurchaseOrderForm, PORejectionForm, SparePartInventoryForm, StockAdjustmentForm, StockAdjustmentRejectForm, SalesOrderForm, PaymentForm, ShippingFileForm, QuotationForm
+from .models import Store, SalesAssignment, User, Group
+from .forms import CustomUserCreationForm, PurchaseOrderForm, PORejectionForm, SparePartInventoryForm, StockAdjustmentForm, StockAdjustmentRejectForm, SalesOrderForm, PaymentForm, ShippingFileForm, QuotationForm, StoreForm, SalesAssignmentForm, MovementRequestForm, RackSelectionForm, RackForm
 import textwrap
 import os
+from functools import wraps
 
 
 styles = getSampleStyleSheet()
@@ -36,6 +39,9 @@ styleN.fontSize = 9
 styleN.leading = 11
 
 # --- Cek Role ---
+def is_master_role(user):
+    """Cek apakah user adalah anggota grup 'Master Role'."""
+    return user.groups.filter(name='Master Role').exists()
 def is_warehouse_manager(user):
     return user.groups.filter(name='Warehouse Manager').exists()
 def is_technician(user):
@@ -51,11 +57,286 @@ def intcomma(value):
     if isinstance(value, (float, int)):
         return f"{int(value):,}".replace(",", ".")
     return str(value)
+def has_permission_or_is_master(user, required_group_name):
+    """
+    Mengembalikan True jika user adalah Master Role ATAU user adalah 
+    anggota dari grup yang diwajibkan (required_group_name).
+    """
+    if is_master_role(user):
+        return True
+    return user.groups.filter(name=required_group_name).exists()
+
+
+@login_required
+@user_passes_test(is_master_role)
+def master_role_dashboard(request):
+    """
+    Dashboard Master Role:
+    - Sidebar: Link ke Store Management dan Sales Assignment.
+    - Fungsionalitas: View dan Edit data dari semua model.
+    """
+    stores = Store.objects.all()
+    assignments = SalesAssignment.objects.select_related('sales_person', 'assigned_store').all()
+    
+    context = {
+        'stores': stores,
+        'assignments': assignments,
+        'total_stores': stores.count(),
+        'total_sales_assigned': assignments.count(),
+        'total_users': User.objects.count(),
+    }
+    return render(request, 'app/dashboards/master_role_dashboard.html', context)
+
+
+# --- Store Management ---
+@login_required
+@user_passes_test(is_master_role)
+def store_list(request):
+    stores = Store.objects.all()
+    return render(request, 'app/store_list.html', {'stores': stores})
+
+@login_required
+@user_passes_test(is_master_role)
+def store_add(request):
+    if request.method == 'POST':
+        form = StoreForm(request.POST) 
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'Store baru berhasil ditambahkan.')
+                return redirect('store_list')
+            except IntegrityError:
+                messages.error(request, 'Nama Store sudah ada. Mohon gunakan nama yang unik.')
+        else:
+            messages.error(request, 'Gagal menambahkan Store. Cek data yang diinput.')
+    else:
+        form = StoreForm()
+    return render(request, 'app/store_form.html', {'form': form, 'title': 'Tambah Store Baru'})
+
+@login_required
+@user_passes_test(is_master_role)
+def store_edit(request, store_id):
+    store = get_object_or_404(Store, id=store_id)
+    if request.method == 'POST':
+        form = StoreForm(request.POST, instance=store)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Store **{store.name}** berhasil diupdate.')
+            return redirect('store_list')
+    else:
+        form = StoreForm(instance=store)
+    return render(request, 'app/store_form.html', {'form': form, 'title': f'Edit Store: {store.name}'})
+
+@login_required
+@user_passes_test(is_master_role)
+def store_delete(request, store_id):
+    store = get_object_or_404(Store, id=store_id)
+    # Periksa jika ada Sales yang masih terikat
+    if store.assigned_sales.exists():
+        messages.error(request, f'Tidak bisa menghapus Store **{store.name}** karena masih ada Sales yang ditugaskan di sini. Pindahkan Sales terlebih dahulu.')
+        return redirect('store_list') # Atau ke halaman detail store
+        
+    # Periksa jika ada SKU yang masih terikat
+    if store.skus_in_store.exists():
+        messages.error(request, f'Tidak bisa menghapus Store **{store.name}** karena masih ada SKU yang berlokasi di sini. Pindahkan SKU terlebih dahulu.')
+        return redirect('store_list') # Atau ke halaman detail store
+        
+    if request.method == 'POST':
+        store.delete()
+        messages.success(request, f'Store **{store.name}** berhasil dihapus.')
+        return redirect('store_list')
+    # Jika perlu konfirmasi:
+    context = {'store': store}
+    return render(request, 'app/store_confirm_delete.html', context)
+
+
+# --- Sales Assignment Management ---
+@login_required
+@user_passes_test(is_master_role)
+def sales_assignment_list(request):
+    assignments = SalesAssignment.objects.select_related('sales_person', 'assigned_store').all()
+    # List Sales yang belum punya Store
+    assigned_sales_ids = [a.sales_person.id for a in assignments]
+    unassigned_sales = User.objects.filter(groups__name='Sales').exclude(id__in=assigned_sales_ids)
+
+    context = {
+        'assignments': assignments,
+        'unassigned_sales': unassigned_sales,
+    }
+    return render(request, 'app/sales_assignment_list.html', context)
+
+@login_required
+@user_passes_test(is_master_role)
+def sales_assignment_add(request):
+    if request.method == 'POST':
+        form = SalesAssignmentForm(request.POST)
+        if form.is_valid():
+            assignment = form.save(commit=False)
+            assignment.assigned_by = request.user # Set Master Role
+            try:
+                assignment.save()
+                messages.success(request, f'Sales **{assignment.sales_person.username}** berhasil ditugaskan di **{assignment.assigned_store.name}**.')
+                return redirect('sales_assignment_list')
+            except IntegrityError:
+                messages.error(request, 'Sales tersebut sudah memiliki Store yang ditugaskan.')
+        else:
+            messages.error(request, 'Gagal menugaskan Sales. Cek data yang diinput.')
+    else:
+        form = SalesAssignmentForm()
+    return render(request, 'app/sales_assignment_form.html', {'form': form, 'title': 'Tugaskan Sales ke Store'})
+
+@login_required
+@user_passes_test(is_master_role)
+def sales_assignment_edit(request, assignment_id):
+    assignment = get_object_or_404(SalesAssignment, id=assignment_id)
+    # Batasi agar Sales Person tidak bisa diubah (karena OneToOne), hanya Store yang diubah
+    if request.method == 'POST':
+        # Gunakan SalesAssignmentForm dan exclude 'sales_person' jika perlu, 
+        # atau pastikan sales_person di-disabled di form.
+        form = SalesAssignmentForm(request.POST, instance=assignment)
+        if form.is_valid():
+            # Set ulang assigned_by untuk menandai siapa yang mengubah
+            assignment.assigned_by = request.user
+            assignment.save()
+            messages.success(request, f'Penugasan Sales **{assignment.sales_person.username}** berhasil diupdate ke **{assignment.assigned_store.name}**.')
+            return redirect('sales_assignment_list')
+    else:
+        form = SalesAssignmentForm(instance=assignment)
+        # Nonaktifkan field sales_person
+        form.fields['sales_person'].disabled = True 
+
+    return render(request, 'app/sales_assignment_form.html', {'form': form, 'title': f'Edit Penugasan: {assignment.sales_person.username}'})
+
+
+def rack_manager_required(function=None):
+    def check_user(user):
+        return is_master_role(user) or is_warehouse_manager(user)
+    actual_decorator = user_passes_test(check_user, login_url='login')
+    if function:
+        return actual_decorator(function)
+    return actual_decorator
+
+@login_required
+@rack_manager_required
+def rack_grid_view(request):
+    """Menampilkan grid rak seperti pemilihan kursi bioskop."""
+    
+    # Ambil semua data rack. Grouping berdasarkan prefiks (cth: 'A', 'B', ...)
+    racks = Rack.objects.all().order_by('rack_location')
+    
+    # Membuat struktur data untuk grid view: {'A': [RackObj1, RackObj2], 'B': [...], ...}
+    rack_grid = {}
+    for rack in racks:
+        # Asumsi format rack_location adalah A1-01, A2-01, dll. atau hanya A, B, C...
+        # Kita ambil huruf pertama sebagai "Baris/Area" (A, B, C...)
+        prefix = rack.rack_location[0].upper()
+        if prefix not in rack_grid:
+            rack_grid[prefix] = []
+        rack_grid[prefix].append(rack)
+
+    context = {
+        'rack_grid': rack_grid,
+        'rack_rows': sorted(rack_grid.keys()),
+    }
+    return render(request, 'app/rack_grid_view.html', context)
+
+@login_required
+@rack_manager_required
+def rack_list(request):
+    """Menampilkan daftar semua rak."""
+    racks = Rack.objects.select_related('occupied_by_sku').all().order_by('rack_location')
+    context = {
+        'racks': racks
+    }
+    return render(request, 'app/rack_list.html', context)
+
+@login_required
+@rack_manager_required
+def rack_add(request):
+    if request.method == 'POST':
+        form = RackForm(request.POST)
+        if form.is_valid():
+            try:
+                rack = form.save(commit=False)
+                # Status default saat add adalah 'Available'
+                rack.status = 'Available'
+                rack.save()
+                messages.success(request, f'Rak **{rack.rack_location}** berhasil ditambahkan.')
+                return redirect('rack_list')
+            except IntegrityError:
+                messages.error(request, 'Lokasi Rak sudah ada. Mohon gunakan nama yang unik.')
+        else:
+            messages.error(request, 'Gagal menambahkan Rak. Cek data yang diinput.')
+    else:
+        form = RackForm()
+        
+    context = {
+        'form': form,
+        'title': 'Tambah Rak Baru'
+    }
+    return render(request, 'app/rack_form.html', context)
+
+@login_required
+@rack_manager_required
+def rack_edit(request, rack_id):
+    rack = get_object_or_404(Rack, id=rack_id)
+    
+    # Jika rak sedang ditempati, kita tidak mengizinkan edit rack_location
+    initial_data = {}
+    if rack.occupied_by_sku:
+        # Jika rak terisi, kita tidak ingin user mengubah status manual (Status field sudah di disable di RackForm)
+        messages.warning(request, f"Rak **{rack.rack_location}** sedang terisi oleh SKU {rack.occupied_by_sku.sku_id}. Hanya lokasi dan status yang tidak terikat yang dapat diubah.")
+
+    if request.method == 'POST':
+        form = RackForm(request.POST, instance=rack)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, f'Rak **{rack.rack_location}** berhasil diupdate.')
+                return redirect('rack_list')
+            except IntegrityError:
+                messages.error(request, 'Lokasi Rak sudah ada. Mohon gunakan nama yang unik.')
+        else:
+            messages.error(request, 'Gagal mengupdate Rak. Cek data yang diinput.')
+    else:
+        form = RackForm(instance=rack)
+        # Nonaktifkan field lokasi jika rak sedang terisi (untuk keamanan data)
+        if rack.occupied_by_sku:
+             form.fields['rack_location'].disabled = True
+
+    context = {
+        'form': form,
+        'rack': rack,
+        'title': f'Edit Rak: {rack.rack_location}'
+    }
+    return render(request, 'app/rack_form.html', context)
+
+@login_required
+@rack_manager_required
+def rack_delete(request, rack_id):
+    rack = get_object_or_404(Rack, id=rack_id)
+    
+    # Cek keterikatan
+    if rack.occupied_by_sku:
+        messages.error(request, f'Tidak bisa menghapus Rak **{rack.rack_location}** karena masih ditempati oleh SKU {rack.occupied_by_sku.sku_id}. Kosongkan rak tersebut terlebih dahulu.')
+        return redirect('rack_list')
+
+    if request.method == 'POST':
+        rack.delete()
+        messages.success(request, f'Rak **{rack.rack_location}** berhasil dihapus.')
+        return redirect('rack_list')
+
+    context = {'rack': rack}
+    return render(request, 'app/rack_confirm_delete.html', context)
 
 @login_required(login_url='login') 
 def dashboard(request):
     user = request.user 
-
+    if is_master_role(user) or user.is_superuser:
+        context = {
+            'total_users': User.objects.count(), 
+        }
+        return master_role_dashboard(request)
     # Data Umum Sidebar (untuk semua role kecuali Teknisi)
     skus_under_tech = SKU.objects.filter(
         assigned_technician__isnull=False
@@ -141,38 +422,54 @@ def dashboard(request):
         pending_adjustments = StockAdjustment.objects.filter(
             status='Pending'
         ).select_related('spare_part', 'requested_by')
-
+        history_pos = PurchaseOrder.objects.exclude(status='Pending_Approval').order_by('-created_at')
+        search_query = request.GET.get('po_search', '')
+        if search_query:
+            history_pos = history_pos.filter(po_number__icontains=search_query)
         context = {
             'parts_to_buy': parts_to_buy,
             'po_notifications': po_notifications,
             'rejected_pos': rejected_pos,
-            'pending_adjustments': pending_adjustments
+            'pending_adjustments': pending_adjustments,
+            'history_pos': history_pos, 
+            'search_query': search_query 
         }
         context.update(sidebar_context) 
         context.update(ready_list_context)
         return render(request, 'app/dashboards/purchasing_dashboard.html', context)
     elif is_sales(user):
-        # Ambil semua order yang dibuat oleh sales ini
+        try:
+            sales_assignment = SalesAssignment.objects.get(sales_person=user)
+            my_store = sales_assignment.assigned_store
+        except SalesAssignment.DoesNotExist:
+            my_store = None
+            messages.warning(request, "Anda belum ditugaskan ke Store manapun oleh Master Role.")
+
+        # Ambil semua order dan quotation (tetap)
         my_orders = SalesOrder.objects.filter(
             sales_person=user
         ).select_related('sku').prefetch_related('payments').order_by('-created_at')
 
-        # Ambil semua quotation yang dibuat oleh sales ini (BARU)
         my_quotations = Quotation.objects.filter(
             sales_person=user
         ).select_related('sku').order_by('-created_at')
 
-        # Form untuk '+ Add Customer'
         add_order_form = SalesOrderForm()
-        
-        # Form untuk '+ Add Quotation' (BARU)
-        add_quotation_form = QuotationForm() 
+        add_quotation_form = QuotationForm()
+
+        # REVISI 1 & 2: Ambil Movement yang ditujukan ke Store Sales ini dan statusnya 'Delivering'
+        movements_in_transit = MovementRequest.objects.filter(
+            requested_by_store=my_store,
+            status='Delivering'
+        ).select_related('sku_to_move', 'requested_by_store').order_by('-created_at')
 
         context = {
             'my_orders': my_orders,
-            'my_quotations': my_quotations, # BARU
+            'my_quotations': my_quotations, 
             'add_order_form': add_order_form,
-            'add_quotation_form': add_quotation_form, # BARU
+            'add_quotation_form': add_quotation_form, 
+            'my_store': my_store, # Store Sales saat ini
+            'movements_in_transit': movements_in_transit, # Daftar SKU yang harus diterima
         }
         # Sales juga bisa melihat list SKU Ready dan Ready Store
         context.update(sidebar_context) 
@@ -182,8 +479,16 @@ def dashboard(request):
     # Fallback jika tidak punya role
     return render(request, 'app/dashboard.html')
 
+def sales_or_master_required(function=None):
+    def check_user(user):
+        return is_master_role(user) or user.groups.filter(name='Sales').exists()
+    actual_decorator = user_passes_test(check_user, login_url='login')
+    if function:
+        return actual_decorator(function)
+    return actual_decorator
+
 @login_required(login_url='login')
-@user_passes_test(is_sales)
+@sales_or_master_required
 def sales_order_add(request):
     """View untuk memproses form '+ Add Customer'."""
     if request.method == 'POST':
@@ -430,6 +735,64 @@ def process_shipping(request, order_id):
             messages.error(request, f"Gagal memproses pengiriman: {e}")
             
     return redirect('sales_order_detail', order_id=order.id)
+
+@login_required(login_url='login')
+@user_passes_test(is_sales)
+def sales_receive_sku(request, movement_id):
+    """
+    Sales mengkonfirmasi penerimaan SKU yang sedang 'Delivering' ke Store-nya.
+    """
+    movement = get_object_or_404(
+        MovementRequest.objects.select_related('sku_to_move', 'requested_by_store'), 
+        id=movement_id, 
+        status='Delivering'
+    )
+    
+    # 1. Cek apakah Store tujuan Movement adalah Store yang ditugaskan kepada Sales ini
+    try:
+        sales_assignment = SalesAssignment.objects.get(sales_person=request.user)
+        assigned_store = sales_assignment.assigned_store
+    except SalesAssignment.DoesNotExist:
+        messages.error(request, "Anda belum ditugaskan ke Store manapun.")
+        return redirect('dashboard')
+        
+    if movement.requested_by_store != assigned_store:
+        messages.error(request, "SKU ini tidak ditujukan ke Store Anda.")
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        receipt_file = request.FILES.get('receipt_form_file') 
+        
+        if not receipt_file:
+            messages.error(request, "Bukti penerimaan wajib diupload.")
+            return redirect('dashboard') # Kembali ke dashboard jika gagal upload
+            
+        try:
+            with transaction.atomic():
+                # 2. Update Movement Request
+                movement.receipt_form = receipt_file 
+                movement.status = 'Received'
+                movement.received_at = timezone.now()
+                movement.received_by_sales = request.user # Catat Sales yang menerima
+                movement.save()
+
+                # 3. Update SKU
+                sku = movement.sku_to_move
+                sku.status = 'Shop' # Status berubah menjadi Ready Store
+                sku.location = 'Shop' 
+                sku.current_store = assigned_store # Konfirmasi lokasi akhir di Store
+                sku.save()
+                
+            messages.success(request, f"SKU {sku.sku_id} berhasil diterima dan kini berstatus 'Ready Store' di {assigned_store.name}.")
+        except Exception as e:
+            messages.error(request, f"Gagal mengkonfirmasi penerimaan: {e}")
+            
+        return redirect('dashboard')
+    
+    # Jika bukan POST, biasanya ini diakses lewat modal/form di dashboard
+    # Kita tidak perlu render template, cukup redirect atau kirim JsonResponse jika diakses via AJAX
+    messages.error(request, "Akses tidak sah.")
+    return redirect('dashboard')
 
 @login_required(login_url='login')
 @user_passes_test(is_warehouse_manager)
@@ -784,30 +1147,88 @@ def get_sku_history_modal(request, sku_id):
 @login_required(login_url='login')
 @user_passes_test(is_purchasing)
 def po_create(request):
+    # --- 1. AMBIL DATA RACK (UNTUK MODAL) ---
+    available_racks = Rack.objects.filter(status='Available', occupied_by_sku__isnull=True).order_by('rack_location')
+    
+    rack_grid = {}
+    for rack in available_racks:
+        prefix = rack.rack_location.split('-')[0]
+        if prefix not in rack_grid:
+            rack_grid[prefix] = []
+        rack_grid[prefix].append(rack)
+
     if request.method == 'POST':
-        form = PurchaseOrderForm(request.POST)
+        # --- 2. PROSES FORM (POST) ---
+        form = PurchaseOrderForm(request.POST) 
+        suggested_rack_id = request.POST.get('suggested_rack') 
+        
         if form.is_valid():
             po = form.save(commit=False)
-            po.status = 'Pending_Approval' # Status awal
+            po.status = 'Pending_Approval'
+            
+            # Tautkan dengan Rack yang dipilih
+            if suggested_rack_id:
+                try:
+                    # Query menggunakan ID dari hidden input
+                    selected_rack = Rack.objects.get(id=suggested_rack_id, status='Available') 
+                    po.suggested_rack = selected_rack 
+                except Rack.DoesNotExist:
+                    messages.warning(request, "Saran Rak tidak valid atau sudah terisi saat PO dibuat.")
+
             po.save()
-            messages.success(request, f"PO {po.po_number} berhasil dibuat dan menunggu approval WM.")
+            messages.success(request, f"PO {po.po_number} berhasil dibuat dan menunggu approval WM. Saran Rak: {po.suggested_rack.rack_location if po.suggested_rack else 'Tidak Ada'}")
             return redirect('dashboard')
+        else:
+            # Jika form tidak valid, pesan error akan muncul di bawah field
+            messages.error(request, "Gagal membuat PO. Cek data yang diinput.")
     else:
+        # --- 3. INISIALISASI FORM (GET) ---
         form = PurchaseOrderForm()
         
-    context = {'form': form}
+    context = {
+        'form': form,
+        'rack_grid': rack_grid, 
+        'rack_rows': sorted(rack_grid.keys()),
+    }
     return render(request, 'app/po_create.html', context)
+
+
+def po_approver_required(function=None):
+    """Membutuhkan user Warehouse Manager ATAU Purchasing ATAU Master Role."""
+    
+    # Fungsi pengecekan yang sebenarnya
+    def check_user(user):
+        # 1. Cek apakah dia Master Role
+        if is_master_role(user):
+            return True
+        # 2. Cek apakah dia Warehouse Manager atau Purchasing (otorisasi standar)
+        return is_warehouse_manager(user) or is_purchasing(user)
+
+    # Terapkan user_passes_test dengan fungsi pengecekan
+    actual_decorator = user_passes_test(check_user, login_url='login')
+    
+    if function:
+        return actual_decorator(function)
+    return actual_decorator
 
 # --- Alur PO (Warehouse Manager) ---
 @login_required(login_url='login')
-@user_passes_test(is_warehouse_manager)
+@po_approver_required
 def po_approve_list(request):
     pending_pos = PurchaseOrder.objects.filter(status='Pending_Approval').order_by('-id')
     context = {'pending_pos': pending_pos}
     return render(request, 'app/po_approve_list.html', context)
 
+def wm_or_master_required(function=None):
+    def check_user(user):
+        return is_master_role(user) or is_warehouse_manager(user)
+    actual_decorator = user_passes_test(check_user, login_url='login')
+    if function:
+        return actual_decorator(function)
+    return actual_decorator
+
 @login_required(login_url='login')
-@user_passes_test(is_warehouse_manager)
+@wm_or_master_required
 def po_approve_detail(request, po_id):
     po = get_object_or_404(PurchaseOrder, id=po_id, status='Pending_Approval')
     
@@ -839,9 +1260,13 @@ def po_approve_detail(request, po_id):
     }
     return render(request, 'app/po_approve_detail.html', context)
 
+def can_view_po_detail(user):
+    """Fungsi baru untuk mengizinkan WM DAN Purchasing."""
+    return user.groups.filter(name__in=['Warehouse Manager', 'Purchasing']).exists()
+
 # --- Receiving ---
 @login_required(login_url='login')
-@user_passes_test(is_warehouse_manager)
+@user_passes_test(can_view_po_detail)
 def receiving_list(request):
     all_pos = PurchaseOrder.objects.filter(
         status__in=['Pending', 'Delivered', 'Finished']
@@ -851,36 +1276,76 @@ def receiving_list(request):
     return render(request, 'app/receiving_list.html', context)
 
 @login_required(login_url='login')
-@user_passes_test(is_warehouse_manager)
+@user_passes_test(can_view_po_detail)
 def receiving_detail(request, po_id):
     po = get_object_or_404(PurchaseOrder.objects.exclude(status__in=['Pending_Approval', 'Rejected']), id=po_id)
+    
+    # Inisialisasi RackSelectionForm (diisi hanya dengan rak yang available)
+    rack_selection_form = RackSelectionForm(request.POST or None)
 
     if request.method == 'POST':
         if 'add_sku' in request.POST:
-            sku_id = request.POST.get('sku_id')
-            sku_name = request.POST.get('sku_name')
-            technician_id = request.POST.get('technician')
-            assigned_technician = User.objects.get(id=technician_id)
+            
+            # Memproses form RackSelection dan data SKU
+            if rack_selection_form.is_valid():
+                selected_rack = rack_selection_form.cleaned_data['available_racks']
 
-            SKU.objects.create(
-                po_number=po,
-                sku_id=sku_id,
-                name=sku_name,
-                assigned_technician=assigned_technician,
-                status='QC'
-            )
+                sku_id = request.POST.get('sku_id')
+                sku_name = request.POST.get('sku_name')
+                technician_id = request.POST.get('technician')
+                
+                if not all([sku_id, sku_name, technician_id]):
+                    messages.error(request, "Gagal menambahkan SKU. Semua field wajib diisi.")
+                    # Fallback agar form di render ulang dengan error rak jika ada
+                    pass 
+                
+                try:
+                    assigned_technician = User.objects.get(id=technician_id)
 
-            po.status = 'Delivered'
-            current_sku_count = po.skus.count()
-            if current_sku_count >= po.expected_sku_count:
-                po.status = 'Finished'
-            po.save()
+                    with transaction.atomic():
+                        # 1. Buat SKU dan tautkan ke Rack
+                        new_sku = SKU.objects.create(
+                            po_number=po,
+                            sku_id=sku_id,
+                            name=sku_name,
+                            assigned_technician=assigned_technician,
+                            status='QC',
+                            shelf_location=selected_rack, # << TAUTKAN RACK
+                            shelved_at=timezone.now()
+                        )
+                        
+                        # 2. Update status Rack: HIJAU -> MERAH
+                        selected_rack.status = 'Used'
+                        selected_rack.occupied_by_sku = new_sku
+                        selected_rack.save()
+                    
+                    messages.success(request, f"SKU {new_sku.sku_id} diterima dan ditempatkan di rak **{selected_rack.rack_location}**.")
+
+                    po.status = 'Delivered'
+                    current_sku_count = po.skus.count()
+                    if current_sku_count >= po.expected_sku_count:
+                        po.status = 'Finished'
+                    po.save()
+                    return redirect('receiving_detail', po_id=po.id)
+
+                except User.DoesNotExist:
+                    messages.error(request, "Teknisi tidak valid.")
+                except IntegrityError:
+                    messages.error(request, f"SKU ID {sku_id} sudah terdaftar.")
+                except Exception as e:
+                     messages.error(request, f"Terjadi kesalahan saat menyimpan SKU: {e}")
+
+            else:
+                # Jika form Rack Selection GAGAL (biasanya karena tidak memilih)
+                messages.error(request, "Gagal menambahkan SKU. Pastikan Anda memilih lokasi rak yang tersedia.")
 
         elif 'upload_dr' in request.POST:
             dr_file = request.FILES.get('delivery_receipt_file')
             if dr_file:
                 po.delivery_receipt = dr_file
                 po.save()
+                messages.success(request, "Delivery Receipt berhasil diunggah.")
+            return redirect('receiving_detail', po_id=po.id)
 
         elif 'packing_list_not_ok' in request.POST:
             rejection_message = request.POST.get('rejection_message')
@@ -890,18 +1355,21 @@ def receiving_detail(request, po_id):
                     message=rejection_message,
                     reported_by=request.user
                 )
-                po.status = 'Pending' 
+                po.status = 'Pending'  
                 po.save()
-                return redirect('receiving_list') 
-
-        return redirect('receiving_detail', po_id=po.id)
+                messages.warning(request, "Notifikasi ke Purchasing telah dikirimkan.")
+                return redirect('receiving_list')
+            return redirect('receiving_detail', po_id=po.id)
 
     skus_in_po = po.skus.all()
     technicians = User.objects.filter(groups__name='Technician')
+    
     context = {
         'po': po,
         'skus_in_po': skus_in_po,
-        'technicians': technicians
+        'technicians': technicians,
+        # Kirim form rack ke template (ini digunakan untuk GET request dan saat POST gagal)
+        'rack_selection_form': rack_selection_form 
     }
     return render(request, 'app/receiving_detail.html', context)
 
@@ -909,36 +1377,95 @@ def receiving_detail(request, po_id):
 @user_passes_test(is_technician)
 def qc_form(request, sku_id):
     sku = get_object_or_404(SKU, id=sku_id, assigned_technician=request.user)
+
+    # 1. Kosongkan rak jika SKU berada di rak (ini adalah proses sebelum QC)
+    if sku.status == 'QC' and sku.shelf_location:
+        try:
+            with transaction.atomic():
+                rack = sku.shelf_location
+                rack.occupied_by_sku = None
+                rack.status = 'Available' 
+                rack.save()
+                sku.shelf_location = None
+                sku.shelved_at = None
+                sku.save()
+                messages.info(request, f"Lokasi rak {rack.rack_location} berhasil dikosongkan.")
+        except Exception as e:
+            messages.error(request, f"Gagal mengosongkan rak: {e}")
+            
     try:
         existing_form = QCForm.objects.get(sku=sku)
     except QCForm.DoesNotExist:
         existing_form = None
+
+    # --- BARU: Ambil data Grid Rak untuk Modal (Sesuai permintaan "kursi bioskop") ---
+    # Ambil semua rak, filter hanya yang available atau yang sedang ditempati
+    all_racks = Rack.objects.select_related('occupied_by_sku').order_by('rack_location')
+    rack_grid = {}
+    
+    # Kelompokkan berdasarkan prefix (misal 'A1', 'B2')
+    for rack in all_racks:
+        # Hanya tampilkan rack yang Available (Hijau)
+        if rack.status == 'Available' or rack.occupied_by_sku == sku:
+             # Asumsi format rack_location adalah A1-01. Kita ambil A1 sebagai grouping.
+             prefix = rack.rack_location.split('-')[0] 
+             if prefix not in rack_grid:
+                 rack_grid[prefix] = []
+             rack_grid[prefix].append(rack)
+             
+    # --- END Grid Rak preparation ---
 
     if request.method == 'POST':
         notes = request.POST.get('condition_notes')
         needs_spare_part = request.POST.get('needs_spare_part') == 'on'
         part_name = request.POST.get('part_name', '')
         part_qty = request.POST.get('part_qty', 1)
-        qc_file = request.FILES.get('qc_document_file') 
+        qc_file = request.FILES.get('qc_document_file')
+        
+        # --- AMBIL ID RAK DARI FIELD HIDDEN ---
+        selected_rack_id = request.POST.get('selected_rack_id') 
+        
+        # 2. VALIDASI RAK
+        if not selected_rack_id:
+            messages.error(request, "Pemilihan Rak Wajib diisi.")
+            
+            # Re-render dengan data grid
+            context = {
+                'sku': sku,
+                'existing_form': existing_form,
+                'rack_grid': rack_grid, # Menggunakan data grid
+            }
+            return render(request, 'app/qc_form.html', context)
+        
+        try:
+            # Pastikan rak yang dipilih benar-benar Available
+            selected_rack = Rack.objects.get(id=selected_rack_id, status='Available')
+        except Rack.DoesNotExist:
+            messages.error(request, "Rak yang dipilih tidak valid atau sudah terisi.")
+            return redirect('qc_form', sku_id=sku_id)
+
+        # 3. Proses QC Form
         qc_obj, created = QCForm.objects.get_or_create(
             sku=sku, 
             defaults={'technician': request.user, 'condition_notes': notes}
         )
         
         if not created:
+            # Logika re-submit form QC yang ditolak (Logika tetap sama)
             qc_obj.condition_notes = notes
             qc_obj.is_approved_by_lead = False
             qc_obj.lead_technician_comments = None 
         if qc_file:
             qc_obj.qc_document_file = qc_file
         qc_obj.save()
+        
+        # 4. Proses Spare Part Request (Logika tetap sama)
         old_requests = SparePartRequest.objects.filter(
             qc_form=qc_obj, 
             status__in=['Pending', 'Rejected'] 
         )
         old_requests.delete()
 
-        # Buat request baru jika diperlukan
         if needs_spare_part and part_name:
             SparePartRequest.objects.create(
                 qc_form=qc_obj,
@@ -947,15 +1474,26 @@ def qc_form(request, sku_id):
                 status='Pending'
             )
 
-        sku.status = 'QC_PENDING' 
-        sku.save()
+        # 5. UPDATE RACK STATUS DAN SKU LOCATION
+        with transaction.atomic():
+            selected_rack.status = 'Used'
+            selected_rack.occupied_by_sku = sku
+            selected_rack.save()
+
+            sku.shelf_location = selected_rack
+            sku.shelved_at = timezone.now()
+            sku.status = 'QC_PENDING' 
+            sku.save()
+        
+        messages.success(request, f"Form QC disubmit. SKU {sku.sku_id} ditempatkan di rak **{selected_rack.rack_location}** dan menunggu verifikasi Lead.")
 
         return redirect('dashboard')
 
-    # Kirim 'existing_form' ke template
+    # Kirim data rak grid ke template untuk modal
     context = {
         'sku': sku,
-        'existing_form': existing_form 
+        'existing_form': existing_form,
+        'rack_grid': rack_grid, # Menggunakan data grid
     }
     return render(request, 'app/qc_form.html', context)
 
@@ -964,23 +1502,97 @@ def qc_form(request, sku_id):
 def qc_verify(request, qc_id):
     qc_form = get_object_or_404(QCForm, id=qc_id)
     sku = qc_form.sku
+    # Pastikan ini hanya mengambil request yang Pending/Approved/Received, bukan yang Rejected/Issued
+    part_requests = qc_form.part_requests.exclude(status__in=['Issued', 'Rejected']).all() 
+    has_pending_parts = part_requests.exists()
+    
+    rack_grid = {}
+
+    # --- MEMUAT DATA GRID RAK HANYA JIKA TIDAK ADA SPARE PART PENDING ---
+    if not has_pending_parts:
+        all_racks = Rack.objects.select_related('occupied_by_sku').order_by('rack_location')
+        for rack in all_racks:
+            # Tampilkan rack yang Available (Hijau)
+            if rack.status == 'Available':
+                 prefix = rack.rack_location.split('-')[0]
+                 if prefix not in rack_grid:
+                     rack_grid[prefix] = []
+                 rack_grid[prefix].append(rack)
 
     if request.method == 'POST':
+        comments = request.POST.get('comments', '')
+        
         if 'approve' in request.POST:
+            selected_rack_id = request.POST.get('selected_rack_id')
+
             qc_form.is_approved_by_lead = True
-            qc_form.lead_technician_comments = request.POST.get('comments', 'Disetujui.')
+            qc_form.lead_technician_comments = comments if comments else 'QC Disetujui.'
             qc_form.managed_at = timezone.now()
-            qc_form.save()
-
-            has_pending_parts = SparePartRequest.objects.filter(qc_form=qc_form, status='Pending').exists()
-
+            
+            # Pengecekan apakah SKU memerlukan spare part setelah QC (sebelum instalasi)
             if not has_pending_parts:
-                sku.status = 'Ready'
+                # KONDISI 1: TIDAK BUTUH PART -> SET STATUS READY & TEMPATKAN DI RAK
+                
+                # 1. Validasi Rack
+                if not selected_rack_id:
+                    # Ini seharusnya ditangani frontend, tapi sebagai fallback:
+                    messages.error(request, "Persetujuan Gagal: Lokasi Rak Wajib dipilih.")
+                    # Fallback rendering the view with error
+                    context = {
+                        'qc_form': qc_form,
+                        'sku': sku,
+                        'part_requests': part_requests,
+                        'rack_grid': rack_grid,
+                    }
+                    return render(request, 'app/qc_verify.html', context)
+
+                try:
+                    selected_rack = Rack.objects.get(id=selected_rack_id, status='Available')
+                except Rack.DoesNotExist:
+                    messages.error(request, "Persetujuan Gagal: Rak yang dipilih tidak valid atau sudah terisi.")
+                    return redirect('qc_verify', qc_id=qc_id)
+
+                with transaction.atomic():
+                    try:
+                        old_rack = Rack.objects.get(occupied_by_sku=sku)
+                        if old_rack.id != selected_rack.id:
+                            old_rack.occupied_by_sku = None
+                            old_rack.status = 'Available'
+                            old_rack.save()
+                            messages.warning(request, f"Rak lama {old_rack.rack_location} dikosongkan.")
+                    except Rack.DoesNotExist:
+                        pass
+
+                    # B. Update SKU
+                    sku.status = 'Ready'
+                    sku.shelf_location = selected_rack # Set relasi ForeignKey
+                    sku.shelved_at = timezone.now()
+                    sku.save()
+
+                    # C. Update Rack BARU (Ini yang menyebabkan error sebelumnya)
+                    selected_rack.status = 'Used'
+                    selected_rack.occupied_by_sku = sku # Set relasi OneToOne
+                    selected_rack.save()
+        
+                    qc_form.save()
+                    messages.success(request, f"QC disetujui. SKU {sku.sku_id} kini READY dan ditempatkan di rak {selected_rack.rack_location}.")
+
+            else:
+                sku.status = 'AWAITING_INSTALL' 
                 sku.save()
+                qc_form.save()
+                messages.info(request, "QC disetujui. Permintaan Spare Part diteruskan ke Warehouse Manager (WM).")
+            
+            return redirect('dashboard')
 
         elif 'reject' in request.POST:
-            qc_form.is_approved_by_lead = False 
-            qc_form.lead_technician_comments = request.POST.get('comments', 'Ditolak. Harap perbaiki.')
+            # --- KELOLA REJECT ---
+            if not comments:
+                messages.error(request, "Komentar wajib diisi jika me-reject.")
+                return redirect('qc_verify', qc_id=qc_id)
+            
+            qc_form.is_approved_by_lead = False
+            qc_form.lead_technician_comments = comments
             qc_form.managed_at = timezone.now()
             qc_form.save()
 
@@ -990,6 +1602,7 @@ def qc_verify(request, qc_id):
                 part.status = 'Rejected'
                 part.save()
 
+            # Reset analytics count
             technician_user = qc_form.technician
             analytics, created = TechnicianAnalytics.objects.get_or_create(technician=technician_user)
             analytics.wrong_qc_count += 1
@@ -997,16 +1610,18 @@ def qc_verify(request, qc_id):
 
             sku.status = 'QC'
             sku.save()
+            messages.warning(request, f"QC ditolak. SKU {sku.sku_id} dikembalikan ke Teknisi.")
 
-        return redirect('dashboard') 
+            return redirect('dashboard')
 
+    # GET Request atau POST gagal (setelah validasi form non-database)
     context = {
         'qc_form': qc_form,
         'sku': sku,
-        'part_requests': qc_form.part_requests.all() 
+        'part_requests': part_requests,
+        'rack_grid': rack_grid, # Kirim data grid (mungkin kosong jika ada pending part)
     }
     return render(request, 'app/qc_verify.html', context)
-
 @login_required(login_url='login')
 @user_passes_test(is_warehouse_manager) 
 def manage_sparepart(request, request_id):
@@ -1086,78 +1701,54 @@ def manage_sparepart(request, request_id):
     }
     return render(request, 'app/manage_sparepart.html', context)
 
-@login_required(login_url='login')
-@user_passes_test(is_warehouse_manager) 
-def assign_shelf(request, sku_id):
-    sku = get_object_or_404(SKU, id=sku_id, status='Ready')
-
-    if request.method == 'POST':
-        shelf_location_input = request.POST.get('shelf_location')
-
-        sku.shelf_location = shelf_location_input
-        sku.shelved_at = timezone.now()
-        sku.save()
-
-        return redirect('dashboard') 
-
-    context = {
-        'sku': sku
-    }
-    return render(request, 'app/assign_shelf.html', context)
 
 @login_required(login_url='login')
 @user_passes_test(is_warehouse_manager) 
 def movement_process(request):
-
+    
     if request.method == 'POST':
-
+        # --- Hanya proses 'create_movement' ---
         if 'create_movement' in request.POST:
-            sku_id = request.POST.get('sku_id')
-            requested_by = request.POST.get('requested_by_shop')
-            delivery_form_file = request.FILES.get('delivery_form')
+            form = MovementRequestForm(request.POST, request.FILES)
+            if form.is_valid():
+                movement = form.save(commit=False)
+                sku_to_move = movement.sku_to_move
+                
+                # Cek jika SKU sudah Delivering
+                if sku_to_move.status in ['Delivering', 'Shop', 'Booked', 'Sold', 'Shipped', 'Completed']:
+                    messages.error(request, f"SKU {sku_to_move.sku_id} tidak bisa dikirim. Status saat ini: {sku_to_move.get_status_display()}")
+                    return redirect('movement_process')
 
-            sku_to_move = get_object_or_404(SKU, id=sku_id)
-
-            MovementRequest.objects.create(
-                sku_to_move=sku_to_move,
-                requested_by_shop=requested_by,
-                delivery_form=delivery_form_file,
-                status='Delivering' 
-            )
-
-            sku_to_move.status = 'Delivering'
-            sku_to_move.save()
-
-        elif 'confirm_received' in request.POST:
-            movement_id = request.POST.get('movement_id')
-            receipt_file = request.FILES.get('receipt_form_file') 
-            
-            movement = get_object_or_404(MovementRequest, id=movement_id)
-            if receipt_file:
-                movement.receipt_form = receipt_file 
-                movement.status = 'Received'
-                movement.received_at = timezone.now()
+                movement.status = 'Delivering'
                 movement.save()
 
-                sku = movement.sku_to_move
-                sku.status = 'Shop'
-                sku.location = 'Shop' 
-                sku.save()
-                messages.success(request, f"Penerimaan SKU {sku.sku_id} telah dikonfirmasi.")
+                sku_to_move.status = 'Delivering'
+                sku_to_move.location = 'Shop' # Update lokasi sementara
+                sku_to_move.current_store = movement.requested_by_store # Set Store Tujuan
+                sku_to_move.save()
+
+                messages.success(request, f"Pengiriman SKU {sku_to_move.sku_id} ke {movement.requested_by_store.name} berhasil dibuat. Menunggu penerimaan Sales.")
             else:
-                messages.error(request, "Gagal konfirmasi. Anda wajib mengupload bukti penerimaan.")
+                messages.error(request, "Gagal membuat pengiriman. Cek form di bawah.")
+
         return redirect('movement_process')
 
-    skus_ready_to_move = SKU.objects.filter(
-        status='Ready',
-        shelf_location__isnull=False 
-    )
+    # --- Tampilan GET Request ---
+    
+    # Data untuk form (hanya SKU yang siap pindah)
+    # Queryset dipindahkan ke MovementRequestForm
+    form = MovementRequestForm() 
+    
+    # Tampilkan Movement yang statusnya 'Delivering'
+    movements_in_progress = MovementRequest.objects.filter(status='Delivering').select_related('sku_to_move', 'requested_by_store')
 
-    movements_in_progress = MovementRequest.objects.filter(status='Delivering')
+    # Data Store & Sales untuk label di template (Optional, tapi membantu)
+    stores_with_sales = SalesAssignment.objects.select_related('sales_person', 'assigned_store').all()
 
     context = {
-        'skus_ready_to_move': skus_ready_to_move,
-        'movements_in_progress': movements_in_progress
+        'movement_form': form, # Menggunakan form yang baru
+        'movements_in_progress': movements_in_progress,
+        'stores_with_sales': stores_with_sales,
     }
     return render(request, 'app/movement_process.html', context)
 
@@ -1338,77 +1929,161 @@ def final_check(request, qc_id):
         qc_form=qc_form, 
         status='Pending_Lead'
     ).first()
-    if sku.status != 'PENDING_FINAL_CHECK':
-        messages.error(request, "SKU ini tidak sedang menunggu final check.")
-        return redirect('dashboard')
 
+    rack_form = RackSelectionForm() # Instansiasi untuk dikirim ke modal
+
+    is_pending_final_check = sku.status == 'PENDING_FINAL_CHECK'
+    
     if request.method == 'POST':
         comments = request.POST.get('comments', '')
-        lead_assigned_sku = request.POST.get('lead_assigned_sku', '')
+        
+        # --- KELOLA APPROVE ---
         if 'approve' in request.POST:
-            if returned_part and not lead_assigned_sku:
-                messages.error(request, "APPROVAL GAGAL: Anda wajib mengisi Nomor SKU untuk sparepart lama yang dikembalikan.")
+            # 1. AMBIL ID RAK & SKU PART LAMA DARI FIELD HIDDEN
+            selected_rack_id = request.POST.get('selected_rack_id') 
+            lead_assigned_sku = request.POST.get('lead_assigned_sku', '') # Dari field hidden di modal
+            
+            # 2. Validasi Rak (Harusnya sudah dicek di frontend, tapi perlu cek di backend juga)
+            if is_pending_final_check and not selected_rack_id:
+                messages.error(request, "APPROVAL GAGAL: Harap pilih lokasi rak yang tersedia.")
+                # Re-render form dengan error
                 context = {
                     'qc_form': qc_form,
                     'sku': sku,
-                    'returned_part': returned_part # Kirim ini agar formnya muncul lagi
+                    'returned_part': returned_part,
+                    'rack_form': RackSelectionForm(request.POST), # Re-Instantiate dengan data POST
+                    'is_pending_final_check': is_pending_final_check,
                 }
                 return render(request, 'app/final_check.html', context)
-            qc_form.final_lead_comments = comments if comments else "Instalasi disetujui."
-            qc_form.final_approval_at = timezone.now()
-            qc_form.final_managed_at = timezone.now()
-            qc_form.save()
-            sku.status = 'Ready'
-            sku.save()
-            if returned_part:
-                returned_part.status = 'Approved'
-                returned_part.lead_assigned_sku = lead_assigned_sku
-                returned_part.approved_by_lead = request.user
-                returned_part.managed_at = timezone.now()
-                returned_part.save()
-                part_inventory, created = SparePartInventory.objects.get_or_create(
-                    part_sku=lead_assigned_sku,
-                    defaults={
-                        'part_name': returned_part.part_name_reported,
-                        'quantity_in_stock': 1,
-                        'status': 'Ready',
-                        'origin': 'RETURN' 
-                    }
-                )
-                
-                if not created:
-                    # Jika part sudah ada, tambahkan stoknya
-                    part_inventory.quantity_in_stock += 1
-                    part_inventory.status = 'Ready'
-                    # Pastikan origin-nya ter-update jika sebelumnya bukan 'RETURN'
-                    part_inventory.origin = 'RETURN' 
-                    part_inventory.save()
-            messages.success(request, f"Instalasi SKU {sku.sku_id} telah disetujui. SKU sekarang 'Ready'.")
+            
+            selected_rack = None
+            if selected_rack_id:
+                try:
+                    selected_rack = Rack.objects.get(id=selected_rack_id)
+                except Rack.DoesNotExist:
+                    messages.error(request, "Rak yang dipilih tidak valid.")
+                    return redirect('final_check', qc_id=qc_id)
 
+            # 3. Validasi SKU Part Lama (Jika ada part yang dikembalikan)
+            if returned_part and not lead_assigned_sku:
+                messages.error(request, "APPROVAL GAGAL: Anda wajib mengisi Nomor SKU untuk sparepart lama yang dikembalikan.")
+                # Re-render form dengan error
+                context = {
+                    'qc_form': qc_form,
+                    'sku': sku,
+                    'returned_part': returned_part,
+                    'rack_form': RackSelectionForm(request.POST), # Re-Instantiate dengan data POST
+                    'is_pending_final_check': is_pending_final_check,
+                }
+                return render(request, 'app/final_check.html', context)
+            
+            # --- START DATABASE TRANSACTION ---
+            try:
+                with transaction.atomic():
+                    qc_form.final_lead_comments = comments if comments else "Instalasi disetujui."
+                    qc_form.final_approval_at = timezone.now()
+                    qc_form.final_managed_at = timezone.now()
+                    qc_form.save()
+                    
+                    # 4. Update SKU Status
+                    sku.status = 'Ready'
+                    
+                    # 5. Logika Penempatan Rack (Hijau -> Merah)
+                    if selected_rack:
+                        # Jika SKU sebelumnya ada di rak manapun, lepaskan dulu
+                        if sku.shelf_location:
+                            old_rack = sku.shelf_location
+                            old_rack.occupied_by_sku = None
+                            old_rack.status = 'Available'
+                            old_rack.save()
+
+                        # Set rak baru
+                        selected_rack.status = 'Used'
+                        selected_rack.occupied_by_sku = sku
+                        selected_rack.save()
+                        
+                        sku.shelf_location = selected_rack
+                        sku.shelved_at = timezone.now()
+                        messages.success(request, f"Instalasi SKU {sku.sku_id} disetujui. SKU sekarang 'Ready' dan ditempatkan di rak **{selected_rack.rack_location}**.")
+                    else:
+                        messages.success(request, f"Instalasi SKU {sku.sku_id} disetujui. SKU sekarang 'Ready'.")
+                        
+                    sku.save()
+                    
+                    # 6. Logika Part Lama (Jika ada)
+                    if returned_part:
+                        returned_part.status = 'Approved'
+                        returned_part.lead_assigned_sku = lead_assigned_sku
+                        returned_part.approved_by_lead = request.user
+                        returned_part.managed_at = timezone.now()
+                        returned_part.save()
+                        
+                        # Update/Create Inventory WM (Logika tetap sama)
+                        part_inventory, created = SparePartInventory.objects.get_or_create(
+                            part_sku=lead_assigned_sku,
+                            defaults={
+                                'part_name': returned_part.part_name_reported,
+                                'quantity_in_stock': 1,
+                                'status': 'Ready',
+                                'origin': 'RETURN'
+                            }
+                        )
+                        if not created:
+                            part_inventory.quantity_in_stock += 1
+                            part_inventory.status = 'Ready'
+                            part_inventory.origin = 'RETURN'
+                            part_inventory.save()
+                            
+                    return redirect('dashboard')
+            except Exception as e:
+                messages.error(request, f"Gagal memproses approval SKU: {e}")
+                return redirect('final_check', qc_id=qc_id)
+
+        # --- KELOLA REJECT ---
         elif 'reject' in request.POST:
             if not comments:
                 messages.error(request, "Komentar wajib diisi jika me-reject.")
                 return redirect('final_check', qc_id=qc_id)
-                
+            
             qc_form.final_lead_comments = comments
-            qc_form.final_approval_at = None # Reset
+            qc_form.final_approval_at = None 
             qc_form.final_managed_at = timezone.now()
             qc_form.save()
 
-            # Kembalikan status ke Teknisi
+            # Hapus SKU dari rak jika ada
+            if sku.shelf_location:
+                try:
+                    with transaction.atomic():
+                        rack = sku.shelf_location
+                        rack.occupied_by_sku = None
+                        rack.status = 'Available' 
+                        rack.save()
+                        sku.shelf_location = None
+                        sku.shelved_at = None
+                        messages.warning(request, f"Rak {rack.rack_location} dikosongkan.")
+                except Exception as e:
+                    messages.error(request, f"Gagal mengosongkan rak: {e}")
+            
             sku.status = 'AWAITING_INSTALL'
             sku.save()
+            
             if returned_part:
-                returned_part.status = 'Rejected' # Ditolak
+                returned_part.status = 'Rejected' 
                 returned_part.managed_at = timezone.now()
                 returned_part.save()
                 
             messages.warning(request, f"Instalasi SKU {sku.sku_id} ditolak dan dikembalikan ke teknisi.")
             return redirect('dashboard')
+
+    # GET Request atau POST gagal (setelah validasi form non-database)
     context = {
         'qc_form': qc_form,
         'sku': sku,
-        'returned_part': returned_part
+        'returned_part': returned_part,
+        'rack_form': rack_form, # Kirim form rak untuk modal
+        'is_pending_final_check': is_pending_final_check,
+        'installation_photos_before': InstallationPhoto.objects.filter(qc_form=qc_form, photo_type='before'),
+        'installation_photos_after': InstallationPhoto.objects.filter(qc_form=qc_form, photo_type='after'),
     }
     return render(request, 'app/final_check.html', context)
 

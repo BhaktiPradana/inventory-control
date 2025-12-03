@@ -41,4 +41,25 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Menyembunyikan opsi "Master Role" dari dropdown setelah DOM dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+        // Asumsi ID field role adalah 'id_role' (standar penamaan Django)
+        const roleSelect = document.getElementById('id_role');
+
+        if (roleSelect) {
+            // >>> PENTING: GANTI 'MASTER_ROLE_VALUE' dengan nilai VALUE (bukan label) yang sebenarnya dari Master Role.
+            // Contoh: Jika di models.py Anda Master Role = 3, maka ganti menjadi '3'.
+            const masterRoleValue = 'MASTER_ROLE_VALUE_HERE';
+
+            // Cari opsi dengan value yang sesuai dan sembunyikan
+            const masterOption = roleSelect.querySelector(`option[value="${masterRoleValue}"]`);
+
+            if (masterOption) {
+                masterOption.style.display = 'none';
+            }
+        }
+    });
+</script>
 {% endblock %}
