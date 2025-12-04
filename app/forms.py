@@ -4,15 +4,10 @@ from django.contrib.auth.models import User, Group
 from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation, Store, SalesAssignment, MovementRequest, Rack
 
 class CustomUserCreationForm(UserCreationForm):
-    all_groups = Group.objects.all()
-    try:
-        master_role = Group.objects.get(name='Master Role')
-        filtered_groups = Group.objects.exclude(id=master_role.id)
-    except Group.DoesNotExist:
-        filtered_groups = Group.objects.all()
-
+    # 1. Definisikan field 'role' TANPA queryset yang difilter di awal.
+    # Biarkan queryset default (Group.objects.all()) atau kosongan (None)
     role = forms.ModelChoiceField(
-        queryset=filtered_groups,
+        queryset=None, # Ditetapkan nanti di __init__
         widget=forms.RadioSelect,
         required=True,
         label="Pilih Peran Anda"
@@ -20,6 +15,29 @@ class CustomUserCreationForm(UserCreationForm):
 
     class Meta(UserCreationForm.Meta):
         fields = UserCreationForm.Meta.fields + ('role',)
+
+    def __init__(self, *args, **kwargs):
+        # Panggil __init__ dari parent terlebih dahulu
+        super().__init__(*args, **kwargs)
+        
+        # 2. PINDAHKAN LOGIKA FILTER KE SINI (DI DALAM __init__)
+        # Logika ini hanya berjalan saat form di-render/di-inisialisasi.
+        try:
+            # Dapatkan ID Master Role
+            master_role_id = Group.objects.get(name='Master Role').id
+            
+            # Terapkan filter pada queryset form field
+            # Mengecualikan Master Role agar tidak muncul di halaman register
+            self.fields['role'].queryset = Group.objects.exclude(id=master_role_id)
+            
+        except Group.DoesNotExist:
+            # Jika grup belum dibuat (misal, saat migrasi pertama kali), tampilkan semua
+            self.fields['role'].queryset = Group.objects.all()
+        
+        except Exception:
+            # Ini akan menangani error koneksi database selama modul load/check
+            # tanpa menghentikan proses migrate/runserver
+            self.fields['role'].queryset = Group.objects.all()
 
 # Form untuk membuat PO oleh Purchasing
 class PurchaseOrderForm(forms.ModelForm):
