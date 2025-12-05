@@ -207,6 +207,31 @@ def sales_assignment_edit(request, assignment_id):
 
     return render(request, 'app/sales_assignment_form.html', {'form': form, 'title': f'Edit Penugasan: {assignment.sales_person.username}'})
 
+@login_required
+@user_passes_test(is_master_role)
+def register_other_role(request):
+    """View untuk Master Role meregister akun baru (role lain)."""
+    if request.method == 'POST':
+        # CustomUserCreationForm memiliki logika untuk mengecualikan 'Master Role'
+        form = CustomUserCreationForm(request.POST) 
+        if form.is_valid():
+            user = form.save()
+            selected_group = form.cleaned_data['role']
+            user.groups.add(selected_group)
+            
+            messages.success(request, f"Akun baru **{user.username}** dengan role **{selected_group.name}** berhasil dibuat.")
+            return redirect('master_role_dashboard')
+        else:
+            messages.error(request, 'Gagal membuat akun. Cek kesalahan pada form.')
+    else:
+        form = CustomUserCreationForm()
+        
+    context = {
+        'form': form,
+        'title': 'Registrasi Akun Role Lain',
+    }
+    return render(request, 'app/register.html', context) 
+
 
 def rack_manager_required(function=None):
     def check_user(user):

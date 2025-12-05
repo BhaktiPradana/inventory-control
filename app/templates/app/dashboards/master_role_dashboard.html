@@ -5,73 +5,80 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-white sidebar collapse shadow-sm border-end">
+
+        <nav id="sidebarMenu" class="col-md-3 col-lg-3 d-md-block bg-white sidebar collapse shadow-sm border-end neumorphic-sidebar">
             <div class="position-sticky pt-4">
 
-                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-2 mb-2 text-primary fw-bold text-uppercase">
+                <h6 class="sidebar-heading neumorphic-heading d-flex justify-content-between align-items-center px-3 mt-2 mb-2 text-primary fw-bold text-uppercase">
                     <i class="fas fa-user-shield me-2"></i>
                     <span>Admin Tools</span>
                 </h6>
                 <ul class="nav flex-column border-bottom pb-2">
                     <li class="nav-item">
-                        <a class="nav-link active bg-light text-primary fw-bold rounded-pill mx-2 my-1" aria-current="page" href="{% url 'master_role_dashboard' %}">
+                        <a class="nav-link menu-link-3d active-3d text-primary fw-bold" aria-current="page" href="{% url 'master_role_dashboard' %}">
                             <i class="fas fa-tachometer-alt me-2"></i>
                             Dashboard Utama
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-dark" href="/admin/" target="_blank">
+                        <a class="nav-link menu-link-3d text-success fw-bold" href="{% url 'register_other_role' %}">
+                            <i class="fas fa-user-plus me-2"></i>
+                            Register Akun Baru
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link menu-link-3d text-dark" href="/admin/" target="_blank">
                             <i class="fas fa-database me-2"></i>
                             View/Edit Semua Data
-                            <span class="badge bg-secondary ms-2">Admin</span>
+                            <span class="badge bg-primary ms-2">Admin</span>
                         </a>
                     </li>
                 </ul>
 
-                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-2 text-primary fw-bold text-uppercase">
+                <h6 class="sidebar-heading neumorphic-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-2 text-primary fw-bold text-uppercase">
                     <i class="fas fa-store me-2"></i>
                     <span>Manajemen Bisnis</span>
                 </h6>
                 <ul class="nav flex-column border-bottom pb-2">
                     <li class="nav-item">
-                        <a class="nav-link text-dark" href="{% url 'store_list' %}">
+                        <a class="nav-link menu-link-3d text-dark" href="{% url 'store_list' %}">
                             <i class="fas fa-list-alt me-2"></i>
                             Kelola Daftar Store
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-success fw-bold" href="{% url 'store_add' %}">
+                        <a class="nav-link menu-link-3d text-success fw-bold" href="{% url 'store_add' %}">
                             <i class="fas fa-plus-circle me-2"></i>
                             Tambah Store Baru
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-dark" href="{% url 'sales_assignment_list' %}">
+                        <a class="nav-link menu-link-3d text-dark" href="{% url 'sales_assignment_list' %}">
                             <i class="fas fa-users-cog me-2"></i>
                             Penugasan Sales
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-success" href="{% url 'sales_assignment_add' %}">
+                        <a class="nav-link menu-link-3d text-success" href="{% url 'sales_assignment_add' %}">
                             <i class="fas fa-user-plus me-2"></i>
                             Tugaskan Sales Baru
                         </a>
                     </li>
                 </ul>
 
-                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-2 text-primary fw-bold text-uppercase">
+                <h6 class="sidebar-heading neumorphic-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-2 text-primary fw-bold text-uppercase">
                     <i class="bi bi-box-seam me-2"></i>
                     <span>Manajemen Gudang</span>
                 </h6>
                 <ul class="nav flex-column mb-2">
                     <li class="nav-item">
-                        <a class="nav-link text-dark" href="{% url 'rack_list' %}">
+                        <a class="nav-link menu-link-3d text-dark" href="{% url 'rack_list' %}">
                             <i class="bi bi-grid-3x3-gap-fill me-2"></i>
                             Kelola Slot Rak
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-success fw-bold" href="{% url 'rack_add' %}">
+                        <a class="nav-link menu-link-3d text-success fw-bold" href="{% url 'rack_add' %}">
                             <i class="bi bi-plus-square me-2"></i>
                             Tambah Rak Baru
                         </a>
@@ -80,7 +87,7 @@
             </div>
         </nav>
 
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+        <main class="col-md-9 ms-sm-auto col-lg-9 px-md-4 py-4">
 
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-4 border-bottom">
                 <h1 class="h2 text-dark"><i class="fas fa-crown me-2 text-warning"></i>Selamat Datang, Master Role!</h1>

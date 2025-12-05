@@ -31,9 +31,9 @@
                 <hr class="my-4">
 
                 <div class="text-center">
-                    <p class="mb-2 small text-muted">Sudah punya akun?</p>
-                    <a href="{% url 'login' %}" class="btn btn-outline-secondary shadow-sm">
-                        <i class="bi bi-box-arrow-in-right me-1"></i> Kembali ke Halaman Login
+                    <p class="mb-2 small text-muted">Selesai mendaftarkan akun?</p>
+                    <a href="{% url 'master_role_dashboard' %}" class="btn btn-outline-secondary shadow-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Kembali ke Dashboard Master Role
                     </a>
                 </div>
 
@@ -43,17 +43,11 @@
 </div>
 
 <script>
-    // Menyembunyikan opsi "Master Role" dari dropdown setelah DOM dimuat
-    document.addEventListener('DOMContentLoaded', function() {
-        // Asumsi ID field role adalah 'id_role' (standar penamaan Django)
+    document.addEventListener('DOMContentLoaded', function () {
         const roleSelect = document.getElementById('id_role');
 
         if (roleSelect) {
-            // >>> PENTING: GANTI 'MASTER_ROLE_VALUE' dengan nilai VALUE (bukan label) yang sebenarnya dari Master Role.
-            // Contoh: Jika di models.py Anda Master Role = 3, maka ganti menjadi '3'.
             const masterRoleValue = 'MASTER_ROLE_VALUE_HERE';
-
-            // Cari opsi dengan value yang sesuai dan sembunyikan
             const masterOption = roleSelect.querySelector(`option[value="${masterRoleValue}"]`);
 
             if (masterOption) {

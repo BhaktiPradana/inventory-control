@@ -43,6 +43,49 @@
             background-color: #e0e6ed !important;
             border-top: 1px solid #ced4da;
         }
+
+        /* --- START: Neumorphism/3D Sidebar Style (DIPERBAIKI) --- */
+        /* Kode CSS ini dipindahkan keluar dari selector .footer yang rusak */
+        .neumorphic-sidebar {
+            background-color: #f0f4f7; /* Background yang sama dengan body */
+        }
+
+        .neumorphic-heading {
+            color: #1a237e !important; /* Warna primary */
+            padding-top: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Gaya untuk link menu (tombol 3D) */
+        .menu-link-3d {
+            transition: all 0.2s ease-in-out;
+            border-radius: 10px;
+            margin: 5px 8px; /* Margin lebih tebal agar efek shadow terlihat */
+            padding: 10px 15px;
+            font-weight: 500;
+            color: #343a40 !important;
+            text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.9);
+            box-shadow: 5px 5px 10px #cad1db, /* Shadow gelap */
+            -5px -5px 10px #ffffff; /* Shadow terang (Highligth) */
+        }
+
+            /* Efek saat hover (naik) */
+            .menu-link-3d:hover {
+                box-shadow: 2px 2px 5px #cad1db, -2px -2px 5px #ffffff;
+                transform: translateY(-2px);
+                background-color: #e0e6ed;
+            }
+
+            /* Efek saat aktif (tertekan ke dalam) */
+            .menu-link-3d.active-3d, .menu-link-3d:active {
+                box-shadow: inset 2px 2px 5px #cad1db, /* Shadow ke dalam */
+                inset -2px -2px 5px #ffffff;
+                background-color: #e0e6ed;
+                color: #007bff !important; /* Warna Primary */
+                transform: none;
+            }
+        /* --- END: Neumorphism/3D Sidebar Style --- */
     </style>
 </head>
 <body class="d-flex flex-column h-100">

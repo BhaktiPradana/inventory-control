@@ -44,8 +44,6 @@ urlpatterns = [
     #HALAMAN HISTORY
     path('sku/history/<int:sku_id>/', views.sku_history, name='sku_history'),
     path('sku/history/modal/<int:sku_id>/', views.get_sku_history_modal, name='sku_history_modal'),
-    # URL Registrasi
-    path('register/', SignUpView.as_view(), name='register'),
     path('inventory/history/<str:part_name>/', views.get_part_usage_history, name='part_usage_history'),
     path('inventory/api/search/', views.inventory_search_api, name='inventory_search_api'),
 
@@ -57,6 +55,7 @@ urlpatterns = [
     path('master-role/store/edit/<int:store_id>/', views.store_edit, name='store_edit'),
     path('master-role/store/delete/<int:store_id>/', views.store_delete, name='store_delete'),
 
+    path('master-role/register-new-role/', views.register_other_role, name='register_other_role'),
     # Kelola Penugasan Sales
     path('master-role/sales-assignment/', views.sales_assignment_list, name='sales_assignment_list'),
     path('master-role/sales-assignment/add/', views.sales_assignment_add, name='sales_assignment_add'),
