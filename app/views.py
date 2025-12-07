@@ -258,10 +258,11 @@ def rack_grid_view(request):
         if prefix not in rack_grid:
             rack_grid[prefix] = []
         rack_grid[prefix].append(rack)
-
+    is_master = is_master_role(request.user)
     context = {
         'rack_grid': rack_grid,
         'rack_rows': sorted(rack_grid.keys()),
+        'is_master': is_master,
     }
     return render(request, 'app/rack_grid_view.html', context)
 
@@ -271,7 +272,8 @@ def rack_list(request):
     """Menampilkan daftar semua rak."""
     racks = Rack.objects.select_related('occupied_by_sku').all().order_by('rack_location')
     context = {
-        'racks': racks
+        'racks': racks,
+        'is_master': is_master_role(request.user),
     }
     return render(request, 'app/rack_list.html', context)
 
