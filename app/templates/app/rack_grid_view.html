@@ -7,8 +7,25 @@
 <div class="row">
     <div class="col-12">
         <div class="card card-glossy shadow-lg mb-4">
-            <div class="card-header card-header-professional text-white">
+            <div class="card-header card-header-professional text-white d-flex justify-content-between align-items-center">
                 <h1 class="h4 mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i> Peta Slot Rak Gudang (View Bioskop)</h1>
+
+                {# --- PENAMBAHAN TOMBOL BACK TO DASHBOARD --- #}
+                <div class="ms-auto">
+                    {% if user.is_authenticated %}
+                    {% if user|is_master_role %}
+                    <a href="{% url 'master_role_dashboard' %}" class="btn btn-sm btn-outline-light">
+                        <i class="fas fa-arrow-left me-1"></i> Kembali ke Dashboard Master
+                    </a>
+                    {% else %}
+                    {# Untuk Warehouse Manager (WM) dan role lain yang diizinkan mengakses Rack Grid View #}
+                    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-light">
+                        <i class="fas fa-arrow-left me-1"></i> Kembali ke Dashboard
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                {# ------------------------------------------- #}
             </div>
             <div class="card-body p-4">
                 <p class="text-muted mb-4">
