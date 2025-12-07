@@ -22,11 +22,11 @@ from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.pdfgen import canvas
 from django.template.loader import render_to_string
 from .models import (
-    PurchaseOrder, SKU, QCForm, SparePartRequest, 
+    PurchaseOrder, SKUDetailPO, SKU, QCForm, SparePartRequest, 
     TechnicianAnalytics, MovementRequest, PurchasingNotification, SparePartInventory, StockAdjustment, ReturnedPart, InstallationPhoto, SalesOrder, Payment, Quotation, Rack
 )
 from .models import Store, SalesAssignment, User, Group
-from .forms import CustomUserCreationForm, PurchaseOrderForm, PORejectionForm, SparePartInventoryForm, StockAdjustmentForm, StockAdjustmentRejectForm, SalesOrderForm, PaymentForm, ShippingFileForm, QuotationForm, StoreForm, SalesAssignmentForm, MovementRequestForm, RackSelectionForm, RackForm
+from .forms import CustomUserCreationForm, PurchaseOrderForm, SKUDetailPOForm, PORejectionForm, SparePartInventoryForm, StockAdjustmentForm, StockAdjustmentRejectForm, SalesOrderForm, PaymentForm, ShippingFileForm, QuotationForm, StoreForm, SalesAssignmentForm, MovementRequestForm, RackSelectionForm, RackForm
 import textwrap
 import os
 from functools import wraps
@@ -1174,44 +1174,73 @@ def get_sku_history_modal(request, sku_id):
 @login_required(login_url='login')
 @user_passes_test(is_purchasing)
 def po_create(request):
-    # --- 1. AMBIL DATA RACK (UNTUK MODAL) ---
-    available_racks = Rack.objects.filter(status='Available', occupied_by_sku__isnull=True).order_by('rack_location')
-    
     rack_grid = {}
-    for rack in available_racks:
-        prefix = rack.rack_location.split('-')[0]
-        if prefix not in rack_grid:
-            rack_grid[prefix] = []
-        rack_grid[prefix].append(rack)
-
     if request.method == 'POST':
-        # --- 2. PROSES FORM (POST) ---
-        form = PurchaseOrderForm(request.POST) 
-        suggested_rack_id = request.POST.get('suggested_rack') 
-        
-        if form.is_valid():
-            po = form.save(commit=False)
-            po.status = 'Pending_Approval'
-            
-            # Tautkan dengan Rack yang dipilih
-            if suggested_rack_id:
-                try:
-                    # Query menggunakan ID dari hidden input
-                    selected_rack = Rack.objects.get(id=suggested_rack_id, status='Available') 
-                    po.suggested_rack = selected_rack 
-                except Rack.DoesNotExist:
-                    messages.warning(request, "Saran Rak tidak valid atau sudah terisi saat PO dibuat.")
+        form = PurchaseOrderForm(request.POST)
+        sku_details_data = request.POST.getlist('sku_details[__index__][machine_sku_id]')
 
-            po.save()
-            messages.success(request, f"PO {po.po_number} berhasil dibuat dan menunggu approval WM. Saran Rak: {po.suggested_rack.rack_location if po.suggested_rack else 'Tidak Ada'}")
-            return redirect('dashboard')
+        if form.is_valid():
+            
+            # --- Validasi Data Detail SKU yang dikirim dari JS ---
+            sku_count = form.cleaned_data.get('expected_sku_count', 0)
+            
+            sku_details_list = []
+            for i in range(sku_count):
+                try:
+                    sku_details_list.append({
+                        'machine_sku_id': request.POST[f'sku_details[{i}][machine_sku_id]'],
+                        'machine_name': request.POST[f'sku_details[{i}][machine_name]'],
+                        'color': request.POST[f'sku_details[{i}][color]'],
+                        'year': request.POST.get(f'sku_details[{i}][year]', None), 
+                        'po_price': request.POST[f'sku_details[{i}][po_price]'],
+                    })
+                except KeyError:
+                    messages.error(request, "Detail SKU Mesin tidak lengkap atau tidak sesuai dengan Jumlah SKU Diharapkan.")
+                    return render_error_context(request, form, rack_grid) 
+
+            calculated_total_po_price = sum(float(item['po_price']) for item in sku_details_list)
+            if calculated_total_po_price != form.cleaned_data.get('total_po_price', 0):
+                messages.error(request, "Terjadi ketidaksesuaian antara Total PO yang dikirim dan perhitungan detail SKU. Harap ulangi proses.")
+                return render_error_context(request, form, rack_grid)
+
+            # --- START TRANSACTION ---
+            try:
+                with transaction.atomic():
+                    po = form.save(commit=False)
+                    po.status = 'Pending_Approval'
+                    po.save()
+                    
+                    for item_data in sku_details_list:
+                        sku_detail_form = SKUDetailPOForm(item_data)
+                        if sku_detail_form.is_valid():
+                            sku_detail = sku_detail_form.save(commit=False)
+                            sku_detail.purchase_order = po
+                            sku_detail.save()
+                        else:
+                            raise IntegrityError(f"Detail SKU ke-{sku_detail_form.errors}")
+                    messages.success(request, f"PO {po.po_number} berhasil dibuat dan menunggu approval WM.")
+                    return redirect('dashboard')
+            
+            except IntegrityError as e:
+                messages.error(request, f"Gagal membuat PO. Kesalahan Database: {e}")
+            except Exception as e:
+                messages.error(request, f"Gagal membuat PO: {e}")
+
         else:
-            # Jika form tidak valid, pesan error akan muncul di bawah field
             messages.error(request, "Gagal membuat PO. Cek data yang diinput.")
+            
+    # --- GET Request atau POST Gagal ---
     else:
-        # --- 3. INISIALISASI FORM (GET) ---
         form = PurchaseOrderForm()
         
+    context = {
+        'form': form,
+        'rack_grid': rack_grid, # Tetap ada untuk render_error_context, meskipun kosong.
+        'rack_rows': sorted(rack_grid.keys()),
+    }
+    return render(request, 'app/po_create.html', context)
+
+def render_error_context(request, form, rack_grid):
     context = {
         'form': form,
         'rack_grid': rack_grid, 
@@ -1305,98 +1334,125 @@ def receiving_list(request):
 @login_required(login_url='login')
 @user_passes_test(can_view_po_detail)
 def receiving_detail(request, po_id):
-    po = get_object_or_404(PurchaseOrder.objects.exclude(status__in=['Pending_Approval', 'Rejected']), id=po_id)
+    # 1. Tarik PO (tanpa relasi berat di awal)
+    po = get_object_or_404(
+        PurchaseOrder.objects.exclude(status__in=['Pending_Approval', 'Rejected']), 
+        id=po_id
+    )
     
-    # Inisialisasi RackSelectionForm (diisi hanya dengan rak yang available)
+    # Kueri untuk Technician dan Form Rack Selection
+    technicians = User.objects.filter(groups__name='Technician')
     rack_selection_form = RackSelectionForm(request.POST or None)
 
+    # Ambil data SKU Detail yang ada (untuk identifikasi item yang BELUM diterima)
+    all_sku_details = SKUDetailPO.objects.filter(purchase_order=po).order_by('id')
+    
+    # ----------------------------------------------------
+    # --- LOGIKA POST (Penerimaan SKU) ---
+    # ----------------------------------------------------
+    
     if request.method == 'POST':
+        
+        # --- A. LOGIKA TAMBAHKAN/TUGASKAN SKU (add_sku) ---
         if 'add_sku' in request.POST:
             
-            # Memproses form RackSelection dan data SKU
-            if rack_selection_form.is_valid():
-                selected_rack = rack_selection_form.cleaned_data['available_racks']
-
-                sku_id = request.POST.get('sku_id')
-                sku_name = request.POST.get('sku_name')
-                technician_id = request.POST.get('technician')
-                
-                if not all([sku_id, sku_name, technician_id]):
-                    messages.error(request, "Gagal menambahkan SKU. Semua field wajib diisi.")
-                    # Fallback agar form di render ulang dengan error rak jika ada
-                    pass 
-                
+            detail_index_str = request.POST.get('detail_index')
+            technician_id = request.POST.get('technician')
+            # Data auto-filled dari hidden input di HTML
+            machine_sku_id_from_post = request.POST.get(f'machine_sku_id_{detail_index_str}')
+            machine_name_from_post = request.POST.get(f'machine_name_{detail_index_str}')
+            
+            # 🚨 Pengecekan Dasar
+            if not technician_id or not machine_sku_id_from_post:
+                messages.error(request, "Penerimaan Gagal: Teknisi atau SKU data (ID/Nama) hilang.")
+            
+            elif not rack_selection_form.is_valid():
+                messages.error(request, "Penerimaan Gagal: Harap pilih lokasi rak yang tersedia.")
+            
+            else:
                 try:
+                    selected_rack = rack_selection_form.cleaned_data['available_racks']
                     assigned_technician = User.objects.get(id=technician_id)
 
                     with transaction.atomic():
-                        # 1. Buat SKU dan tautkan ke Rack
+                        
+                        # Cek duplikasi SKU ID
+                        if SKU.objects.filter(po_number=po, sku_id=machine_sku_id_from_post).exists():
+                            messages.warning(request, f"SKU ID {machine_sku_id_from_post} sudah didaftarkan.")
+                            return redirect('receiving_detail', po_id=po.id)
+                        
+                        # 1. Buat objek SKU baru
                         new_sku = SKU.objects.create(
                             po_number=po,
-                            sku_id=sku_id,
-                            name=sku_name,
+                            sku_id=machine_sku_id_from_post,
+                            name=machine_name_from_post,
                             assigned_technician=assigned_technician,
-                            status='QC',
-                            shelf_location=selected_rack, # << TAUTKAN RACK
+                            status='QC', # Status awal setelah diterima
+                            location='Warehouse',
+                            shelf_location=selected_rack, 
                             shelved_at=timezone.now()
                         )
                         
-                        # 2. Update status Rack: HIJAU -> MERAH
+                        # 2. Update status Rack
                         selected_rack.status = 'Used'
                         selected_rack.occupied_by_sku = new_sku
                         selected_rack.save()
                     
-                    messages.success(request, f"SKU {new_sku.sku_id} diterima dan ditempatkan di rak **{selected_rack.rack_location}**.")
+                        messages.success(request, f"SKU {new_sku.sku_id} diterima, ditempatkan di rak **{selected_rack.rack_location}**, dan ditugaskan ke {assigned_technician.username}.")
 
-                    po.status = 'Delivered'
-                    current_sku_count = po.skus.count()
-                    if current_sku_count >= po.expected_sku_count:
-                        po.status = 'Finished'
-                    po.save()
-                    return redirect('receiving_detail', po_id=po.id)
+                        # 3. Update status PO
+                        # Hitung total SKU yang sudah terdaftar untuk PO ini (termasuk yang baru)
+                        current_sku_count = po.skus.count() + 1 
+                        if current_sku_count >= po.expected_sku_count:
+                            po.status = 'Finished'
+                        elif current_sku_count > 0:
+                            po.status = 'Delivered'
+                        po.save()
+                        
+                        return redirect('receiving_detail', po_id=po.id) 
 
                 except User.DoesNotExist:
-                    messages.error(request, "Teknisi tidak valid.")
-                except IntegrityError:
-                    messages.error(request, f"SKU ID {sku_id} sudah terdaftar.")
+                    messages.error(request, "Penerimaan Gagal: Teknisi tidak valid.")
                 except Exception as e:
-                     messages.error(request, f"Terjadi kesalahan saat menyimpan SKU: {e}")
-
-            else:
-                # Jika form Rack Selection GAGAL (biasanya karena tidak memilih)
-                messages.error(request, "Gagal menambahkan SKU. Pastikan Anda memilih lokasi rak yang tersedia.")
-
+                    # Menangkap semua error lain (misal IntegrityError)
+                    messages.error(request, f"Penerimaan Gagal (Internal Error): {e}")
+                    return redirect('receiving_detail', po_id=po.id)
+            
+        # --- B. LOGIKA UPLOAD DR & PACKING LIST NOT OK (tetap) ---
         elif 'upload_dr' in request.POST:
-            dr_file = request.FILES.get('delivery_receipt_file')
-            if dr_file:
-                po.delivery_receipt = dr_file
-                po.save()
-                messages.success(request, "Delivery Receipt berhasil diunggah.")
-            return redirect('receiving_detail', po_id=po.id)
+             dr_file = request.FILES.get('delivery_receipt_file')
+             if dr_file:
+                 po.delivery_receipt = dr_file
+                 po.save()
+                 messages.success(request, "Delivery Receipt berhasil diunggah.")
+             return redirect('receiving_detail', po_id=po.id)
 
         elif 'packing_list_not_ok' in request.POST:
-            rejection_message = request.POST.get('rejection_message')
-            if rejection_message:
-                PurchasingNotification.objects.create(
-                    po_number=po,
-                    message=rejection_message,
-                    reported_by=request.user
-                )
-                po.status = 'Pending'  
-                po.save()
-                messages.warning(request, "Notifikasi ke Purchasing telah dikirimkan.")
-                return redirect('receiving_list')
-            return redirect('receiving_detail', po_id=po.id)
+             rejection_message = request.POST.get('rejection_message')
+             if rejection_message:
+                 PurchasingNotification.objects.create(
+                     po_number=po, message=rejection_message, reported_by=request.user
+                 )
+                 po.status = 'Pending'
+                 po.save()
+                 messages.warning(request, "Notifikasi ke Purchasing telah dikirimkan.")
+                 return redirect('receiving_list')
+             return redirect('receiving_detail', po_id=po.id)
+    skus_in_po = SKU.objects.filter(po_number=po).select_related('assigned_technician', 'shelf_location')
 
-    skus_in_po = po.skus.all()
-    technicians = User.objects.filter(groups__name='Technician')
+    # Identifikasi SKU Detail yang BELUM Diterima
+    registered_sku_ids = [sku.sku_id for sku in skus_in_po]
+    sku_details_to_receive = [
+        detail for detail in all_sku_details 
+        if detail.machine_sku_id not in registered_sku_ids
+    ]
     
     context = {
         'po': po,
         'skus_in_po': skus_in_po,
         'technicians': technicians,
-        # Kirim form rack ke template (ini digunakan untuk GET request dan saat POST gagal)
-        'rack_selection_form': rack_selection_form 
+        'rack_selection_form': RackSelectionForm(), # Pastikan ini selalu baru
+        'sku_details_to_receive': sku_details_to_receive, 
     }
     return render(request, 'app/receiving_detail.html', context)
 

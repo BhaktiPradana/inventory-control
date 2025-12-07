@@ -15,28 +15,17 @@ class PurchaseOrder(models.Model):
     ]
     po_number = models.CharField(max_length=100, unique=True)
     expected_sku_count = models.IntegerField(default=0)
-    buy_price = models.DecimalField(
+    total_po_price = models.DecimalField( 
         max_digits=10, 
         decimal_places=0, 
         default=0, 
-        help_text="Harga Beli Total PO dari Supplier",
-        null=True, # Memungkinkan null agar tidak error jika data lama tidak ada
+        help_text="Harga Beli Total PO dari Supplier (Auto-Calculated)",
+        null=True, 
         blank=True
     )
     forwarder_receipt = models.FileField(upload_to='receipts/', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending_Approval') # Default diubah
     delivery_receipt = models.FileField(upload_to='po_delivery_receipts/', blank=True, null=True)
-
-    # Field Baru untuk SUGGESTED RACK
-    suggested_rack = models.ForeignKey(
-        'Rack',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='suggested_pos',
-        help_text="Saran Lokasi Rak dari Purchasing"
-    )
-
     # Field Baru untuk approval
     approved_by_wm = models.ForeignKey(
         User, 
@@ -52,6 +41,35 @@ class PurchaseOrder(models.Model):
 
     def __str__(self):
         return self.po_number
+class SKUDetailPO(models.Model):
+    """Menyimpan detail mesin yang dipesan dalam satu PO."""
+    purchase_order = models.ForeignKey(
+        'PurchaseOrder',
+        on_delete=models.CASCADE,
+        related_name='sku_details',
+        help_text="PO Induk dari detail mesin ini"
+    )
+    # Fields Wajib
+    machine_sku_id = models.CharField(max_length=100, help_text="ID Mesin / SKU Item")
+    machine_name = models.CharField(max_length=255, help_text="Nama Mesin / Tipe")
+    color = models.CharField(max_length=50, help_text="Warna Mesin")
+    po_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=0,
+        help_text="Harga Beli PO per unit (Rp)"
+    )
+    
+    # Field Opsional
+    year = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Tahun pembuatan mesin (Opsional)"
+    )
+
+    def __str__(self):
+        return f"{self.machine_name} - {self.machine_sku_id} (PO: {self.purchase_order.po_number})"
+
+
 
 class Store(models.Model):
     """Model untuk merepresentasikan lokasi toko/outlet."""

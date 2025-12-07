@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User, Group
-from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation, Store, SalesAssignment, MovementRequest, Rack
+from .models import PurchaseOrder, SparePartInventory, StockAdjustment, SKU, SalesOrder, Payment, Quotation, Store, SalesAssignment, MovementRequest, Rack, SKUDetailPO
 
 class CustomUserCreationForm(UserCreationForm):
     role = forms.ModelChoiceField(
@@ -33,35 +33,37 @@ class PurchaseOrderForm(forms.ModelForm):
 
     class Meta:
         model = PurchaseOrder
-        # Pastikan field utama dan suggested_rack disertakan:
-        fields = ['po_number', 'expected_sku_count', 'buy_price', 'suggested_rack'] 
+        fields = ['po_number', 'expected_sku_count', 'total_po_price']  
         labels = {
             'po_number': 'Nomor PO',
             'expected_sku_count': 'Jumlah SKU Diharapkan',
-            'buy_price': 'Harga Beli Total (Rp)',
-            'suggested_rack': 'Saran Lokasi Rak'
+            'total_po_price': 'Total PO (Rp)',  
         }
         widgets = {
             'po_number': forms.TextInput(attrs={'class': 'form-control'}),
-            'expected_sku_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'buy_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}), 
+            'expected_sku_count': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'id': 'id_expected_sku_count'}),  
+            'total_po_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'readonly': 'readonly', 'id': 'id_total_po_price'}),  
         }
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # 1. Mengatur Queryset untuk suggested_rack (ForeignKey)
-        if 'suggested_rack' in self.fields:
-            self.fields['suggested_rack'].queryset = Rack.objects.filter(
-                status='Available', 
-                occupied_by_sku__isnull=True
-            ).order_by('rack_location')
+class SKUDetailPOForm(forms.ModelForm):
+    # Hilangkan label default agar lebih rapi di HTML
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].label = False
             
-            # 2. Menyembunyikan widget field model agar diurus oleh input hidden di HTML
-            self.fields['suggested_rack'].widget = forms.HiddenInput()
-            self.fields['suggested_rack'].label = ''
-            
-
+    class Meta:
+        model = SKUDetailPO
+        fields = ['machine_sku_id', 'machine_name', 'color', 'year', 'po_price']
+        widgets = {
+            'machine_sku_id': forms.TextInput(attrs={'class': 'form-control form-control-sm sku-id-input', 'required': 'required'}),
+            'machine_name': forms.TextInput(attrs={'class': 'form-control form-control-sm machine-name-input', 'required': 'required'}),
+            'color': forms.TextInput(attrs={'class': 'form-control form-control-sm color-input', 'required': 'required'}),
+            'year': forms.NumberInput(attrs={'class': 'form-control form-control-sm year-input', 'min': '1900'}),
+            'po_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm po-price-input', 'min': '0', 'required': 'required', 'step': '1000'}),
+        }
 # Form untuk WM me-reject PO
 class PORejectionForm(forms.ModelForm):
     class Meta:
